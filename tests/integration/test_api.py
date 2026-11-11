@@ -120,3 +120,23 @@ def test_api_validation_and_not_found(tmp_path: Path) -> None:
         campaign_id = created.json()["campaign"]["id"]
         empty = client.post(f"/api/campaigns/{campaign_id}/turns", json={"action": ""})
         assert empty.status_code == 422
+
+
+def test_api_leak_error_does_not_echo_the_secret(tmp_path: Path) -> None:
+    provider = fake_provider()
+    with _client(tmp_path, provider) as client:
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+        secret = "The council borrowed heavily against harbor fees that no longer exist."
+        provider.replies.append(AgentReply(text=f"The truth is: {secret}"))
+
+        response = client.post(
+            f"/api/campaigns/{campaign_id}/turns",
+            json={"action": "ask about the ledger"},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "content_leak"
+        assert secret not in response.text
+        after = client.get(f"/api/campaigns/{campaign_id}/player").json()
+        assert after["campaign"]["turn_count"] == 0

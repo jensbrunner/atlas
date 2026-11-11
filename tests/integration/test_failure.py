@@ -8,7 +8,7 @@ from atlas.agents.campaign import CampaignRequest
 from atlas.agents.types import AgentError, AgentReply
 from atlas.errors import LeakDetected
 from atlas.state.store import CampaignStore
-from tests.support import FailingProvider, fake_provider, make_service, tool
+from tests.support import FailingProvider, fake_provider, make_service, seed_payload, tool
 
 
 def test_hidden_fact_text_in_narration_is_rejected(tmp_path: Path) -> None:
@@ -18,12 +18,38 @@ def test_hidden_fact_text_in_narration_is_rejected(tmp_path: Path) -> None:
     secret = state.world.facts["fact_hidden_debt"].text
     provider.replies.append(AgentReply(text=f"Here is the truth: {secret}"))
 
-    with pytest.raises(LeakDetected):
+    with pytest.raises(LeakDetected) as caught:
         service.play_turn(state.meta.id, "ask about the ledger")
 
+    assert secret not in str(caught.value)
     reloaded = service.get(state.meta.id)
     assert reloaded.meta.turn_count == 0
     assert not (reloaded.root / "turns" / "0001.md").exists()
+
+
+def test_hidden_name_is_matched_on_word_boundaries(tmp_path: Path) -> None:
+    payload = seed_payload()
+    payload["npcs"][0]["player_known"] = False
+    provider = fake_provider(seed=payload)
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+    # "Mara" is hidden, but "marathon" is an ordinary word and must not trip.
+    provider.replies.append(AgentReply(text="The marathon continues along the wet street."))
+
+    result = service.play_turn(state.meta.id, "keep walking")
+    assert result.turn == 1
+
+
+def test_hidden_faction_name_in_narration_is_rejected(tmp_path: Path) -> None:
+    payload = seed_payload()
+    payload["factions"][0]["player_known"] = False
+    provider = fake_provider(seed=payload)
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+    provider.replies.append(AgentReply(text="The Town Council meets at dawn."))
+
+    with pytest.raises(LeakDetected):
+        service.play_turn(state.meta.id, "listen at the door")
 
 
 def test_provider_failure_leaves_files_untouched(tmp_path: Path) -> None:

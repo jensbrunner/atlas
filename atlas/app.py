@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from atlas.state.validate import InvalidState
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = PROJECT_ROOT / "web" / "dist"
+logger = logging.getLogger("atlas")
 
 
 def create_app(settings: Settings | None = None, provider: Provider | None = None) -> FastAPI:
@@ -59,6 +61,7 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
 
     @app.exception_handler(LeakDetected)
     def _leak(_: Request, exc: LeakDetected) -> JSONResponse:
+        logger.warning("blocked narration containing protected material: %r", exc.matched[:80])
         return JSONResponse(
             status_code=422,
             content=error_body("content_leak", str(exc)),

@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from atlas.ids import slugify
+
 Visibility = Literal["gm", "player"]
 TurnKind = Literal["opening", "player", "world"]
 
@@ -248,18 +250,50 @@ class CampaignSeed(StrictModel):
     @field_validator("locations")
     @classmethod
     def _unique_locations(cls, value: list[LocationDraft]) -> list[LocationDraft]:
-        seen = {item.id for item in value}
-        if len(seen) != len(value):
-            raise ValueError("location ids must be unique")
+        seen = [slugify(item.id) for item in value]
+        if len(set(seen)) != len(value):
+            raise ValueError("location ids must be unique after slugification")
+        return value
+
+    @field_validator("factions")
+    @classmethod
+    def _unique_factions(cls, value: list[FactionDraft]) -> list[FactionDraft]:
+        seen = [slugify(item.id) for item in value]
+        if len(set(seen)) != len(value):
+            raise ValueError("faction ids must be unique after slugification")
+        return value
+
+    @field_validator("clocks")
+    @classmethod
+    def _unique_clocks(cls, value: list[ClockDraft]) -> list[ClockDraft]:
+        seen = [slugify(item.id) for item in value]
+        if len(set(seen)) != len(value):
+            raise ValueError("clock ids must be unique after slugification")
+        return value
+
+    @field_validator("npcs")
+    @classmethod
+    def _unique_npcs(cls, value: list[NPCDraft]) -> list[NPCDraft]:
+        seen = [slugify(item.id) for item in value]
+        if len(set(seen)) != len(value):
+            raise ValueError("npc ids must be unique after slugification")
+        return value
+
+    @field_validator("facts")
+    @classmethod
+    def _unique_fact_ids(cls, value: list[FactDraft]) -> list[FactDraft]:
+        ids = [fact.id for fact in value if fact.id]
+        if len(set(ids)) != len(ids):
+            raise ValueError("fact ids must be unique")
         return value
 
     @model_validator(mode="after")
     def _references(self) -> CampaignSeed:
-        location_ids = {item.id for item in self.locations}
-        if self.current_location not in location_ids:
+        location_ids = {slugify(item.id) for item in self.locations}
+        if slugify(self.current_location) not in location_ids:
             raise ValueError("current_location must reference a generated location")
         for npc in self.npcs:
-            if npc.location and npc.location not in location_ids:
+            if npc.location and slugify(npc.location) not in location_ids:
                 raise ValueError(f"npc {npc.id!r} references unknown location {npc.location!r}")
         fact_ids = {fact.id for fact in self.facts if fact.id}
         for npc in self.npcs:

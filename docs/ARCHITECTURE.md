@@ -47,7 +47,7 @@ atlas/
     campaign.py        structured campaign generation
     world.py           offscreen evolution
     auditor.py         structured continuity findings
-    prompts/           narrator, campaign, world, auditor, and shared rules
+    prompts/           narrator, campaign, world, and auditor instructions
 
   state/
     schemas.py         Pydantic models for all structured state
@@ -151,10 +151,10 @@ known entity references, monotonic world time, valid fact/NPC references.
 - The auditor is invoked only on demand and returns structured findings.
 - Recent turns and total prompt characters are budgeted.
 - Token usage is stored in every turn file and returned by the API.
-- `ATLAS_SESSION_USD_LIMIT` is checked against accumulated usage. The bundled
-  adapters report token usage but do not invent a price, so the default fake
-  provider costs nothing and live cost accounting depends on the provider's
-  reported usage.
+- `ATLAS_SESSION_USD_LIMIT` is checked against accumulated estimated cost. Set
+  `ATLAS_INPUT_USD_PER_MILLION` and `ATLAS_OUTPUT_USD_PER_MILLION` to price
+  tokens. With the default zero rates the estimate stays at zero, so the cap
+  does not trigger; the fake provider always costs nothing.
 
 ## Failure semantics
 

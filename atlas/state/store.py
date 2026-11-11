@@ -24,6 +24,8 @@ from atlas.state.schemas import (
     WorldState,
 )
 
+_TURN_KIND_ORDER = {"opening": 0, "player": 1, "world": 2}
+
 
 class CampaignNotFound(Exception):
     pass
@@ -43,12 +45,23 @@ class CampaignStore:
     # -- paths ---------------------------------------------------------
 
     def campaign_dir(self, campaign_id: str) -> Path:
-        return self.data_dir / campaign_id
+        if (
+            not campaign_id
+            or campaign_id in {".", ".."}
+            or "/" in campaign_id
+            or "\\" in campaign_id
+        ):
+            raise CampaignNotFound(campaign_id)
+        root = self.data_dir / campaign_id
+        if root.resolve().parent != self.data_dir.resolve():
+            raise CampaignNotFound(campaign_id)
+        return root
 
     def _require(self, campaign_id: str) -> Path:
         root = self.campaign_dir(campaign_id)
-        if not (root / "campaign.md").is_file():
-            raise CampaignNotFound(campaign_id)
+        for name in ("campaign.md", "character.md", "world.md"):
+            if not (root / name).is_file():
+                raise CampaignNotFound(campaign_id)
         return root
 
     # -- queries -------------------------------------------------------
@@ -119,7 +132,7 @@ class CampaignStore:
             npcs[npc_id] = NPC(
                 id=npc_id,
                 name=npc_draft.name,
-                location=npc_draft.location,
+                location=slugify(npc_draft.location) if npc_draft.location else "",
                 player_known=npc_draft.player_known,
                 attitude=npc_draft.attitude,
                 attributes=npc_draft.attributes,
@@ -156,7 +169,7 @@ class CampaignStore:
             inventory=inventory,
         )
         world = WorldState(
-            current_location=seed.current_location,
+            current_location=slugify(seed.current_location),
             situation=seed.premise,
             locations=locations,
             factions=factions,
@@ -233,7 +246,7 @@ class CampaignStore:
             turn_raw, narration = parse_document(path.read_text(encoding="utf-8"))
             turn_raw["narration"] = narration.strip()
             turns.append(TurnRecord.model_validate(turn_raw))
-        turns.sort(key=lambda item: (item.turn, 0 if item.kind == "opening" else 1))
+        turns.sort(key=lambda item: (item.turn, _TURN_KIND_ORDER[item.kind]))
 
         return CampaignState(
             root=root,

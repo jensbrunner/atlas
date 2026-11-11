@@ -9,7 +9,8 @@ class LeakDetected(AtlasError):
     """Narration contained material the player must not see."""
 
     def __init__(self, matched: str) -> None:
-        super().__init__(f"narration contains protected material: {matched!r}")
+        # Never echo the protected text back to the client.
+        super().__init__("narration contained protected GM material")
         self.matched = matched
 
 

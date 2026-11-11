@@ -32,8 +32,9 @@ class Settings(BaseSettings):
     recent_turn_limit: int = Field(default=6, ge=0, le=50)
     context_char_budget: int = Field(default=48_000, ge=4_000)
 
-    monthly_usd_limit: float = Field(default=10.0, ge=0)
     session_usd_limit: float = Field(default=2.0, ge=0)
+    input_usd_per_million: float = Field(default=0.0, ge=0)
+    output_usd_per_million: float = Field(default=0.0, ge=0)
 
     request_timeout_seconds: float = Field(default=90.0, gt=0)
 

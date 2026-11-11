@@ -124,5 +124,5 @@ depend on any of it.
 - Automatic world-turn thresholds based on world time.
 - Retrieval over long campaigns instead of a recent-turn window.
 - Semantic secret-leak detection and model-side redaction.
-- Cost pricing tables for accurate USD accounting.
+- Bundled per-model price presets for accurate USD accounting.
 - Multi-user or remote hosting.

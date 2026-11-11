@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import re
 import threading
 from collections import defaultdict
 from collections.abc import Callable
@@ -64,6 +65,8 @@ class CampaignService:
                 provider=settings.provider,
                 api_key=settings.openai_api_key,
                 timeout=settings.request_timeout_seconds,
+                input_usd_per_million=settings.input_usd_per_million,
+                output_usd_per_million=settings.output_usd_per_million,
             )
         self.settings = settings
         self.provider = provider
@@ -168,6 +171,7 @@ class CampaignService:
 
     def _world_turn_locked(self, campaign_id: str, reason: str) -> dict[str, Any]:
         state = self.store.load(campaign_id)
+        time_before = state.meta.world_time_minutes
         ctx = ToolContext(state=state, rng=self.rng_factory())
         agent = WorldAgent(self.provider, self.registry, self.settings)
         reply = agent.run(state, reason, ctx)
@@ -177,7 +181,7 @@ class CampaignService:
             turn=state.meta.turn_count,
             kind="world",
             action=reason or "The world moves on",
-            world_time_before=state.meta.world_time_minutes,
+            world_time_before=time_before,
             world_time_after=state.meta.world_time_minutes,
             model=self.settings.world_model,
             usage=reply.usage,
@@ -221,7 +225,7 @@ class CampaignService:
             raise BudgetExceeded(f"session cost limit exceeded: ${spent:.2f} > ${cap:.2f}")
 
     def _check_leaks(self, state: CampaignState, narration: str) -> None:
-        haystack = narration.lower()
+        haystack = narration.casefold()
         protected: list[str] = []
         for fact in state.world.facts.values():
             if fact.visibility == "gm" and len(fact.text.strip()) >= 16:
@@ -232,13 +236,30 @@ class CampaignService:
                 cleaned = line.strip()
                 if len(cleaned) >= 24:
                     protected.append(cleaned)
-        for npc in state.npcs.values():
-            if not npc.player_known and len(npc.name.strip()) >= 3:
-                protected.append(npc.name.strip())
 
         for secret in protected:
-            if secret.lower() in haystack:
+            if secret.casefold() in haystack:
                 raise LeakDetected(secret[:80])
+
+        # Names are matched on word boundaries so a hidden "Mara" does not trip
+        # on "marathon". Hidden entities should not be named at all.
+        hidden_names = [npc.name.strip() for npc in state.npcs.values() if not npc.player_known]
+        hidden_names += [
+            location.name.strip()
+            for location in state.world.locations.values()
+            if not location.player_known
+        ]
+        hidden_names += [
+            faction.name.strip()
+            for faction in state.world.factions.values()
+            if not faction.player_known
+        ]
+        for name in hidden_names:
+            if len(name) < 3:
+                continue
+            pattern = rf"(?<!\w){re.escape(name)}(?!\w)"
+            if re.search(pattern, narration, flags=re.IGNORECASE):
+                raise LeakDetected(name[:80])
 
 
 __all__ = ["CampaignService", "TurnResult", "CampaignNotFound"]

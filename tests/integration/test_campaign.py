@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from atlas.agents.campaign import CampaignRequest
-from atlas.state.store import CampaignStore
-from tests.support import make_service
+from atlas.state.schemas import CampaignSeed
+from atlas.state.store import CampaignNotFound, CampaignStore
+from atlas.state.validate import validate_state
+from tests.support import make_service, seed_payload
 
 
 def test_create_campaign_writes_markdown_and_opening(tmp_path: Path) -> None:
@@ -56,3 +61,45 @@ def test_restart_loads_the_same_state(tmp_path: Path) -> None:
 
     store = CampaignStore(tmp_path / "campaigns")
     assert store.list_campaigns()[0].id == campaign_id
+
+
+def test_seed_rejects_duplicate_and_colliding_ids() -> None:
+    payload = seed_payload()
+    payload["locations"].append({"id": "Market-Square", "name": "Duplicate"})
+    with pytest.raises(ValidationError, match="location ids must be unique"):
+        CampaignSeed.model_validate(payload)
+
+    payload = seed_payload()
+    payload["npcs"].append(dict(payload["npcs"][0]))
+    with pytest.raises(ValidationError, match="npc ids must be unique"):
+        CampaignSeed.model_validate(payload)
+
+    payload = seed_payload()
+    payload["facts"].append(dict(payload["facts"][0]))
+    with pytest.raises(ValidationError, match="fact ids must be unique"):
+        CampaignSeed.model_validate(payload)
+
+
+def test_seed_location_references_are_slug_normalized(tmp_path: Path) -> None:
+    payload = seed_payload()
+    payload["current_location"] = "Market Square"
+    payload["npcs"][0]["location"] = "Market Square"
+    seed = CampaignSeed.model_validate(payload)
+
+    state = CampaignStore(tmp_path / "campaigns").create(seed, narrator_model="fake")
+    assert state.world.current_location == "market_square"
+    assert state.npcs["mara"].location == "market_square"
+    validate_state(state)
+
+
+def test_store_rejects_path_traversal_and_partial_campaigns(tmp_path: Path) -> None:
+    store = CampaignStore(tmp_path / "campaigns")
+
+    with pytest.raises(CampaignNotFound):
+        store.load("../outside")
+
+    partial = tmp_path / "campaigns" / "cmp_partial"
+    partial.mkdir(parents=True)
+    (partial / "campaign.md").write_text("---\nid: cmp_partial\n---\n", encoding="utf-8")
+    with pytest.raises(CampaignNotFound):
+        store.load("cmp_partial")

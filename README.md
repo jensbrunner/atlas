@@ -122,8 +122,8 @@ campaigns/<id>/
 Deliberately small:
 
 - Four attributes: Might, Agility, Insight, Presence.
-- A short skill list (Negotiation, Engineering, Confrontation, Survival by
-  default; additional skills are allowed).
+- A short, free-form skill list; the generator picks a handful suited to the
+  character, and any skill name can carry an integer rating.
 - `2d6 + attribute + skill + situational modifier` against a difficulty. The
   result is `failure`, `mixed_success`, or `success`.
 - Health, stress, supplies, currency, conditions, inventory quantities.
@@ -143,7 +143,10 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
 - **Continuity auditor:** on demand. Advisory only; it has no write tools.
 
 Context is assembled from the GM packet with recent-turn and character budgets.
-Every turn records token usage.
+Every turn records token usage. Set `ATLAS_INPUT_USD_PER_MILLION` and
+`ATLAS_OUTPUT_USD_PER_MILLION` to price tokens; `ATLAS_SESSION_USD_LIMIT` then
+stops a session that exceeds the configured estimate. With the default zero
+rates, cost estimates stay at zero.
 
 ## HTTP API
 

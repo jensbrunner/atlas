@@ -22,7 +22,20 @@ class OpenAIProvider:
     network connection.
     """
 
-    def __init__(self, api_key: str, *, timeout: float = 90.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        timeout: float = 90.0,
+        client: Any | None = None,
+        input_usd_per_million: float = 0.0,
+        output_usd_per_million: float = 0.0,
+    ) -> None:
+        self._input_rate = input_usd_per_million
+        self._output_rate = output_usd_per_million
+        if client is not None:
+            self._client = client
+            return
         try:
             from openai import OpenAI
         except ImportError as exc:  # pragma: no cover - dependency is declared
@@ -58,7 +71,15 @@ class OpenAIProvider:
                     arguments=arguments,
                 )
             )
-        return AgentReply(text=text, tool_calls=calls, usage=_usage(response))
+        return AgentReply(
+            text=text,
+            tool_calls=calls,
+            usage=_usage(
+                response,
+                input_rate=self._input_rate,
+                output_rate=self._output_rate,
+            ),
+        )
 
     # -- structured generation ---------------------------------------
 
@@ -93,7 +114,11 @@ class OpenAIProvider:
                 raise AgentError("model returned invalid structured JSON") from exc
             if not isinstance(payload, dict):
                 raise AgentError("model returned a non-object structured payload")
-            return payload, _usage(response)
+            return payload, _usage(
+                response,
+                input_rate=self._input_rate,
+                output_rate=self._output_rate,
+            )
         raise AgentError(f"model did not call required tool {request.tool_name}")
 
 
@@ -143,21 +168,42 @@ def _response_text(response: Any) -> str:
     return "\n".join(parts)
 
 
-def _usage(response: Any) -> Usage:
+def _usage(
+    response: Any,
+    *,
+    input_rate: float = 0.0,
+    output_rate: float = 0.0,
+) -> Usage:
     usage = getattr(response, "usage", None)
     if usage is None:
         return Usage()
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+    estimated = input_tokens / 1_000_000 * input_rate + output_tokens / 1_000_000 * output_rate
     return Usage(
-        input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
-        output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_usd=round(estimated, 6),
     )
 
 
-def build_provider(*, provider: str, api_key: str | None, timeout: float = 90.0) -> Provider:
+def build_provider(
+    *,
+    provider: str,
+    api_key: str | None,
+    timeout: float = 90.0,
+    input_usd_per_million: float = 0.0,
+    output_usd_per_million: float = 0.0,
+) -> Provider:
     if provider == "openai":
         if not api_key:
             raise ValueError("an OpenAI API key is required for ATLAS_PROVIDER=openai")
-        return OpenAIProvider(api_key, timeout=timeout)
+        return OpenAIProvider(
+            api_key,
+            timeout=timeout,
+            input_usd_per_million=input_usd_per_million,
+            output_usd_per_million=output_usd_per_million,
+        )
     from atlas.agents.fake import FakeProvider
 
     return FakeProvider()

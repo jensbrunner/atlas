@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -25,13 +26,25 @@ def _settings(args: argparse.Namespace) -> Settings:
 def cmd_serve(args: argparse.Namespace) -> int:
     settings = _settings(args)
     settings.validate_provider()
-    uvicorn.run(
-        "atlas.app:create_app",
-        factory=True,
-        host=args.host or settings.host,
-        port=args.port or settings.port,
-        reload=args.reload,
-    )
+    host = args.host or settings.host
+    port = args.port or settings.port
+    if args.reload:
+        # The reloader imports the factory in a subprocess, so pass overrides
+        # through the environment rather than as a prebuilt app object.
+        os.environ["ATLAS_DATA_DIR"] = str(settings.data_dir)
+        os.environ["ATLAS_PROVIDER"] = settings.provider
+        uvicorn.run(
+            "atlas.app:create_app",
+            factory=True,
+            host=host,
+            port=port,
+            reload=True,
+        )
+        return 0
+
+    from atlas.app import create_app
+
+    uvicorn.run(create_app(settings), host=host, port=port)
     return 0
 
 
@@ -102,6 +115,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default=None)
     serve.add_argument("--port", type=int, default=None)
     serve.add_argument("--reload", action="store_true")
+    # Accept storage overrides after the subcommand as well as before it.
+    serve.add_argument("--data-dir", default=argparse.SUPPRESS)
+    serve.add_argument("--provider", default=argparse.SUPPRESS, choices=["fake", "openai"])
     serve.set_defaults(func=cmd_serve)
 
     listing = sub.add_parser("list", help="list campaigns")

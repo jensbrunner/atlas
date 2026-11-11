@@ -66,6 +66,8 @@ them.
   narration transcript, action composer, character/inventory/world/clocks/journal
   panels, GM modal, audit modal.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
+- CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
+  `--provider` for both normal and reload modes.
 
 ## Verification evidence
 
@@ -73,26 +75,37 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 29 passed |
+| `uv run pytest -q` | 49 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 57 files already formatted |
 | `uv run mypy` | no issues in 49 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
-Automated tests use only the fake provider. Coverage includes:
+Automated tests use only the fake provider or a stub OpenAI client. They make no
+network calls and need no credentials. Coverage includes:
 
 - frontmatter round-trip, GM block stripping/extraction;
 - dice outcomes and modifier math;
 - tool bounds: inventory add/remove, health clamps, clock clamps, unknown tools,
   bad argument types, fact record/reveal;
 - campaign creation, file layout, player/GM separation, restart reload;
+- seed validation: duplicate and slug-colliding ids, slug-normalized location
+  references;
+- store path-traversal rejection and partial directory handling;
+- offline/live configuration gates, default Luna models, key requirements;
 - multi-turn state carry-over, time, inventory, rolls, journal, turn files;
 - hidden-fact leak rejection with no turn committed;
+- hidden-name leaks matched on word boundaries, not inside ordinary words;
+- leak errors never echo the protected text;
 - provider failure leaving files untouched;
 - rejected tool call not aborting a turn;
-- world turn clock changes hidden from player narration, world-turn files;
+- world turn clock changes hidden from player narration, world-turn files, and
+  world turns loading after a player turn with the same number;
 - auditor findings and empty findings;
+- OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
+  structured calls, pricing, and missing-tool errors;
+- CLI settings overrides reaching the served app;
 - HTTP round-trip, 404, 422 validation, deletion.
 
 Manual smoke test (fake provider, built frontend):
@@ -107,6 +120,11 @@ Manual smoke test (fake provider, built frontend):
 8. Restart the server → `GET /api/campaigns` still lists the campaign and the
    transcript is intact.
 
+Live wiring smoke test (no model request): with `ATLAS_PROVIDER=openai`,
+`ATLAS_ALLOW_CLOUD=true`, and a dummy key, `/healthz` reports `live: true` and
+`/api/config` reports the four Luna models. Only a real key and provider
+availability remain unverified.
+
 ## Known limitations
 
 - No narration streaming; the UI waits for a committed turn.
@@ -116,8 +134,10 @@ Manual smoke test (fake provider, built frontend):
   campaigns.
 - Secret-leak detection is verbatim matching against GM fact text, GM prose
   blocks, and hidden NPC names. It is a backstop, not a semantic guarantee.
-- USD accounting depends on provider-reported usage; token usage is recorded, but
-  no price table is bundled.
+- USD estimates use an optional static price table
+  (`ATLAS_INPUT_USD_PER_MILLION` / `ATLAS_OUTPUT_USD_PER_MILLION`). No per-model
+  price presets are bundled, so the session cap is inert until rates are set,
+  and session spend resets when the server restarts.
 - Single-user localhost only. No auth, no remote hosting.
 - Live OpenAI behavior (model availability, tool-call format, structured output)
   is unverified without a key.
@@ -127,8 +147,8 @@ Manual smoke test (fake provider, built frontend):
 1. Live smoke test with an API key: campaign generation, three player turns with a
    roll and an inventory change, one world turn, one audit. Record actual model
    IDs and any adapter fixes.
-2. Add a price table (or accept explicit per-model pricing) so session/monthly
-   USD caps are meaningful for live calls.
+2. Add per-model price presets so `ATLAS_SESSION_USD_LIMIT` is meaningful without
+   hand-entering rates.
 3. Add SSE streaming for narration while keeping commit-time atomicity.
 4. Add UI deletion with confirmation and campaign export/import of the directory.
 5. Replace verbatim leak matching with a model-side redaction pass or embedding
