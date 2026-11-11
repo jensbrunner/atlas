@@ -378,9 +378,7 @@ def player_scene_view(projection: ProjectionState, *, actor_slug: str = "rowan")
             continue
         if entity.id == actor.id:
             continue
-        if location is not None and (
-            entity.id == location.id or entity.state.get("location_id") == location.id
-        ):
+        if location is not None and entity.state.get("location_id") == location.id:
             present.append(_brief(entity))
 
     return {

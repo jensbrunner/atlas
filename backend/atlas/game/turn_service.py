@@ -26,7 +26,12 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from atlas.domain.commands import AdvanceTimeCommand, DomainCommand
+from atlas.domain.commands import (
+    AdjustResourceCommand,
+    AdvanceTimeCommand,
+    DomainCommand,
+    MoveEntityCommand,
+)
 from atlas.domain.dice import generate_seed, resolve_roll
 from atlas.domain.errors import (
     DomainError,
@@ -240,7 +245,11 @@ class TurnService:
         expected_version: int | None,
     ) -> TurnResult:
         self._validate_request(client_action_id, player_text)
-        key = f"{campaign_id}:{client_action_id}"
+        # Turns for one campaign are strictly sequential: a later action must be
+        # resolved against the state produced by the previous one. This lock
+        # also serializes duplicate client ids. Cross-process safety still comes
+        # from the unique client-id constraint and the commit compare-and-swap.
+        key = f"campaign:{campaign_id}"
         with _key_lock(key):
             try:
                 return self._drive(
@@ -287,6 +296,8 @@ class TurnService:
 
         if attempt.status is not TurnStatus.RECEIVED:
             self._increment_attempt(attempt.turn_id)
+        else:
+            self._call_hook(TurnStatus.RECEIVED, attempt.turn_id)
 
         projection = self._load_snapshot(campaign_id, attempt.snapshot_version)
         seed = bytes.fromhex(attempt.seed_hex)
@@ -547,7 +558,9 @@ class TurnService:
 
         actor = projection.entities.get(outcome.actor_id)
         location = None
-        if actor is not None:
+        if intent is not None and intent.kind is IntentKind.MOVE and intent.target_id:
+            location = projection.entities.get(intent.target_id)
+        elif actor is not None:
             location_id = actor.state.get("location_id")
             if isinstance(location_id, str):
                 location = projection.entities.get(location_id)
@@ -874,8 +887,15 @@ class TurnService:
 
 
 def intent_kind_for_plan(plan: ScriptedTurnPlan) -> IntentKind:
-    if plan.roll_request is not None:
+    """Best-effort intent label for legacy scripted plans."""
+    if any(isinstance(command, MoveEntityCommand) for command in plan.commands):
+        return IntentKind.MOVE
+    if plan.roll_request is not None or any(
+        isinstance(command, AdjustResourceCommand) for command in plan.commands
+    ):
         return IntentKind.SEARCH
+    if plan.commands and all(isinstance(command, AdvanceTimeCommand) for command in plan.commands):
+        return IntentKind.WAIT
     return IntentKind.OBSERVE
 
 

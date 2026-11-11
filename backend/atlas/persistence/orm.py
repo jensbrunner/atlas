@@ -116,7 +116,9 @@ class TurnRow(Base):
     mechanics_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     intent_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     outcome_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     rng_seed_hex: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

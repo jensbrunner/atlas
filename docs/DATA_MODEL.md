@@ -1,4 +1,4 @@
-# Data Model (M0)
+# Data Model (M1)
 
 The event ledger is history. Relational state is a projection that can be rebuilt
 from history and checked against a canonical hash.
@@ -35,7 +35,7 @@ Per-entity `version` increments when a state-changing event is applied.
 `payload_json`, `inverse_json`, `occurred_at_world`, `created_at`,
 `schema_version`, `provenance_json`, `visibility`, `cause_event_ids_json`.
 
-Unique `(campaign_id, seq)`, contiguous from 1. M0 event types:
+Unique `(campaign_id, seq)`, contiguous from 1. M1 event types:
 
 | Type | Payload | Projection effect |
 |---|---|---|
@@ -43,21 +43,38 @@ Unique `(campaign_id, seq)`, contiguous from 1. M0 event types:
 | `entity.resource_changed` | resource, delta, before, after, bounds, reason | Set resource value |
 | `entity.moved` | from/to location, reason | Set `location_id` |
 | `time.advanced` | minutes, before, after, reason | Set campaign world time |
+| `scene.observed` | text, kind, subject IDs | Append observation |
 | `turn.committed` | turn ID, ordinal, new state version | Increment campaign version |
 
 Payloads are validated by `domain.events.PAYLOAD_MODELS`; unknown types or extra
-fields are rejected. Event IDs and sequences are assigned by the persistence
-layer, never by a model.
+fields are rejected. Observation subject IDs must reference existing entities.
+Event IDs and sequences are assigned by the persistence layer, never by a model.
+
+### `observations`
+
+`id` (the source event ID), `campaign_id`, `turn_id`, `seq`, `text`, `kind`,
+`subject_ids_json`, `visibility`, `occurred_at_world`, `created_at`.
+
+Unique `(campaign_id, seq)`; indexed by `(campaign_id, turn_id)`. Observations
+are derived from `scene.observed` events and are part of the canonical state
+hash. Kinds are `arrival`, `search`, `speech`, `observation`, and `wait`.
 
 ### `turns`
 
 `id`, `campaign_id`, `client_action_id`, `ordinal`, `player_text`, `status`,
-`snapshot_version`, `narrator_text`, `mechanics_json`, `error_code`,
-`rng_seed_hex`, `created_at`, `committed_at`.
+`snapshot_version`, `narrator_text`, `mechanics_json`, `intent_json`,
+`outcome_json`, `attempt_count`, `error_code`, `rng_seed_hex`, `created_at`,
+`committed_at`.
 
 Unique `(campaign_id, client_action_id)` for idempotency and
-`(campaign_id, ordinal)` for ordering. Status values mirror the planned
-lifecycle; M0 writes `RECEIVED` and then `COMMITTED` in one transaction.
+`(campaign_id, ordinal)` for ordering. Statuses are `RECEIVED`, `PARSED`,
+`RESOLVED`, `NARRATED`, `VALIDATED`, `COMMITTED`, and `FAILED`.
+
+Lifecycle data (`intent_json`, `outcome_json`, narration) is persisted phase by
+phase so recovery can resume without applying effects twice. `attempt_count`
+starts at 1 when the turn is claimed and increments when a pending turn resumes.
+Failed turns are durable rows with an `error_code`; committed turns are never
+rewritten.
 
 ### `rolls`
 
@@ -65,8 +82,8 @@ lifecycle; M0 writes `RECEIVED` and then `COMMITTED` in one transaction.
 `seed_ref`, `result_json`, `visibility`.
 
 Committed roll outcomes are immutable. The seed reproduces the exact dice. Raw
-`seed_ref` is sensitive and must not be exposed in player-facing responses before
-an authorized reveal.
+`seed_ref` is sensitive and is not exposed in player-facing responses before an
+authorized reveal; the API returns `RollSummary` fields only.
 
 ### `checkpoints`
 
@@ -85,14 +102,17 @@ violation.
 - stale resource `before` value, inconsistent delta, out-of-bounds result;
 - unknown/stale location, moving to the same location;
 - stale time or inconsistent time step;
+- an observation whose subject does not exist;
 - a turn commit that does not increment the version by exactly one.
 
-`hash_projection` canonicalizes campaign ID, current time, state version, and
-sorted entities (ID, kind, slug, display name, static, state, per-entity version,
-retirement) and SHA-256 hashes compact sorted JSON. `verify_replay` compares the
-live projection hash with a hash rebuilt from events.
+`hash_projection` canonicalizes campaign ID, current time, state version, sorted
+entities (ID, kind, slug, display name, static, state, per-entity version,
+retirement), and sorted observations (event ID, sequence, turn ID, world time,
+text, kind, subject IDs, visibility). It serializes compact sorted JSON and
+applies SHA-256. `verify_replay` compares the live projection hash with a hash
+rebuilt from events.
 
-## Enforced M0 invariants
+## Enforced M1 invariants
 
 - Foreign keys and uniqueness are enforced by SQLite.
 - A living actor must reference an existing location.
@@ -101,14 +121,22 @@ live projection hash with a hash rebuilt from events.
 - Entity slugs are unique per campaign.
 - Every command references an entity in the same campaign.
 - State changes are proposed as typed events and validated before commit.
-- A turn's events and state projection commit atomically or not at all.
-- A committed `(campaign_id, client_action_id)` returns its saved result.
-- GM-only entities are omitted from `public_state_view`.
+- A turn's events, projections, observations, roll, and status commit atomically
+  or not at all.
+- Committed turns cannot be rewritten; a committed
+  `(campaign_id, client_action_id)` returns its saved result.
+- Duplicate requests cannot double-apply state; same-client concurrency is
+  serialized in-process and protected by a unique constraint across processes.
+- A pending turn whose snapshot version has been overtaken is marked `FAILED`
+  instead of applying effects against stale state.
+- GM-only entities and GM-only observations are omitted from player views.
+- Narrator prose is rejected if it contains GM-only markers, control
+  characters, or excessive length.
 
 ## Deferred to later milestones
 
 `facts`, `knowledge`, `statements`, `relationships`, `items`, `locations`,
 `npc_goals`, `factions`, `clocks`, `scenes`, `narrative_fingerprints`,
-`player_preferences`, `model_calls`, and journal views. M0 represents locations
-and items as entities; M2 will normalize their specialized fields and add the
-four-truth model.
+`player_preferences`, and `model_calls`. M1 represents locations and items as
+entities and stores observations in a journal projection; M2 will normalize
+specialized fields and add the four-truth model.

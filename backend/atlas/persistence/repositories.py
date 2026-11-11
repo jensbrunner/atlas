@@ -417,18 +417,15 @@ def list_turns(
     *,
     after_ordinal: int = 0,
     limit: int = 50,
+    committed_only: bool = True,
 ) -> list[TurnRow]:
-    return list(
-        session.scalars(
-            select(TurnRow)
-            .where(
-                TurnRow.campaign_id == campaign_id,
-                TurnRow.ordinal > after_ordinal,
-            )
-            .order_by(TurnRow.ordinal)
-            .limit(limit)
-        )
+    statement = select(TurnRow).where(
+        TurnRow.campaign_id == campaign_id,
+        TurnRow.ordinal > after_ordinal,
     )
+    if committed_only:
+        statement = statement.where(TurnRow.status == "COMMITTED")
+    return list(session.scalars(statement.order_by(TurnRow.ordinal).limit(limit)))
 
 
 def list_observations(

@@ -182,7 +182,10 @@ def test_invalid_command_does_not_partially_apply(
         assert hash_projection(load_projection(check, campaign_id)) == before_hash
         assert len(load_events(check, campaign_id)) == before_events
         assert get_campaign(check, campaign_id).state_version == 0
-        assert check.scalar(select(func.count(TurnRow.id))) == 0
+        rows = check.scalars(select(TurnRow)).all()
+        assert len(rows) == 1
+        assert rows[0].status == "FAILED"
+        assert rows[0].error_code is not None
 
 
 def test_turn_committed_event_is_last_and_derives_version(
