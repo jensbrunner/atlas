@@ -25,11 +25,19 @@ from atlas.domain.models import (
     Entity,
     EntityKind,
     EntityState,
+    RelationshipDimension,
+    StatementKind,
     Visibility,
 )
 from atlas.domain.projection import (
+    ProjectedClock,
+    ProjectedEnding,
     ProjectedEntity,
+    ProjectedFact,
+    ProjectedKnowledge,
     ProjectedObservation,
+    ProjectedRelationship,
+    ProjectedStatement,
     ProjectionState,
     apply_event,
     canonical_projection,
@@ -38,11 +46,16 @@ from atlas.domain.projection import (
 from atlas.persistence.orm import (
     CampaignRow,
     CheckpointRow,
+    ClockRow,
     EntityRow,
     EntityStateRow,
     EventRow,
+    FactRow,
+    KnowledgeRow,
     ObservationRow,
+    RelationshipRow,
     RollRow,
+    StatementRow,
     TurnRow,
     utcnow,
 )
@@ -92,6 +105,7 @@ def campaign_model(row: CampaignRow) -> Campaign:
         current_time=row.current_time,
         seed=row.seed,
         settings=CampaignSettings.model_validate(row.settings_json),
+        ending=dict(row.ending_json) if isinstance(row.ending_json, dict) else None,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -136,7 +150,14 @@ def load_projection(session: Session, campaign_id: str) -> ProjectionState:
         current_time=campaign.current_time,
         state_version=campaign.state_version,
         last_event_seq=int(last_seq or 0),
+        status=CampaignStatus(campaign.status),
     )
+    if isinstance(campaign.ending_json, dict):
+        projection.ending = ProjectedEnding(
+            outcome=str(campaign.ending_json.get("outcome", "")),
+            summary=str(campaign.ending_json.get("summary", "")),
+            event_id=str(campaign.ending_json.get("event_id", "")),
+        )
     for entity_row, state_row in rows:
         projection.entities[entity_row.id] = ProjectedEntity(
             id=entity_row.id,
@@ -169,6 +190,66 @@ def load_projection(session: Session, campaign_id: str) -> ProjectionState:
                 subject_ids=list(row.subject_ids_json),
                 visibility=Visibility(row.visibility),
             )
+        )
+
+    for fact_row in session.scalars(select(FactRow).where(FactRow.campaign_id == campaign_id)):
+        projection.facts[fact_row.slug] = ProjectedFact(
+            slug=fact_row.slug,
+            text=fact_row.text,
+            visibility=Visibility(fact_row.visibility),
+            event_id=fact_row.id,
+        )
+
+    for statement_row in session.scalars(
+        select(StatementRow).where(StatementRow.campaign_id == campaign_id)
+    ):
+        projection.statements[statement_row.slug] = ProjectedStatement(
+            slug=statement_row.slug,
+            speaker_id=statement_row.speaker_id,
+            proposition=statement_row.proposition,
+            topic=statement_row.topic,
+            kind=StatementKind(statement_row.kind),
+            is_true=statement_row.is_true,
+            audience_ids=list(statement_row.audience_ids_json),
+            event_id=statement_row.id,
+        )
+
+    for knowledge_row in session.scalars(
+        select(KnowledgeRow).where(KnowledgeRow.campaign_id == campaign_id)
+    ):
+        projection.knowledge[(knowledge_row.entity_id, knowledge_row.statement_slug)] = (
+            ProjectedKnowledge(
+                entity_id=knowledge_row.entity_id,
+                statement_slug=knowledge_row.statement_slug,
+                source=knowledge_row.source,
+                event_id=knowledge_row.event_id,
+            )
+        )
+
+    for relationship_row in session.scalars(
+        select(RelationshipRow).where(RelationshipRow.campaign_id == campaign_id)
+    ):
+        dimension = RelationshipDimension(relationship_row.dimension)
+        projection.relationships[(relationship_row.from_id, relationship_row.to_id, dimension)] = (
+            ProjectedRelationship(
+                from_id=relationship_row.from_id,
+                to_id=relationship_row.to_id,
+                dimension=dimension,
+                value=relationship_row.value,
+                updated_event_id=relationship_row.event_id,
+            )
+        )
+
+    for clock_row in session.scalars(select(ClockRow).where(ClockRow.campaign_id == campaign_id)):
+        projection.clocks[clock_row.slug] = ProjectedClock(
+            slug=clock_row.slug,
+            name=clock_row.name,
+            segments=clock_row.segments,
+            filled=clock_row.filled,
+            trigger=clock_row.trigger,
+            owner_id=clock_row.owner_id,
+            visibility=Visibility(clock_row.visibility),
+            created_event_id=clock_row.created_event_id,
         )
     return projection
 
@@ -272,11 +353,24 @@ def commit_event_batch(
             session.add(_observation_row(envelope))
         if draft.subject_id is not None and draft.subject_id in projection.entities:
             changed_entity_ids.add(draft.subject_id)
+        if draft.actor_id is not None and draft.actor_id in projection.entities:
+            changed_entity_ids.add(draft.actor_id)
 
     campaign.current_time = projection.current_time
     campaign.state_version = projection.state_version
+    campaign.status = projection.status.value
+    campaign.ending_json = (
+        {
+            "outcome": projection.ending.outcome,
+            "summary": projection.ending.summary,
+            "event_id": projection.ending.event_id,
+        }
+        if projection.ending is not None
+        else None
+    )
     campaign.updated_at = utcnow()
     _write_entity_rows(session, projection, changed_entity_ids)
+    _sync_world_rows(session, projection)
     session.flush()
     return envelopes, projection
 
@@ -355,6 +449,127 @@ def _write_entity_rows(session: Session, projection: ProjectionState, entity_ids
         else:
             state_row.version = projected.state_version
             state_row.state_json = projected.state
+
+
+def _sync_world_rows(session: Session, projection: ProjectionState) -> None:
+    for fact in projection.facts.values():
+        fact_row = session.scalar(
+            select(FactRow).where(
+                FactRow.campaign_id == projection.campaign_id, FactRow.slug == fact.slug
+            )
+        )
+        if fact_row is None:
+            fact_row = FactRow(
+                id=fact.event_id or new_id("fct"),
+                campaign_id=projection.campaign_id,
+                slug=fact.slug,
+                text=fact.text,
+                visibility=fact.visibility.value,
+            )
+            session.add(fact_row)
+        else:
+            fact_row.text = fact.text
+            fact_row.visibility = fact.visibility.value
+
+    for statement in projection.statements.values():
+        statement_row = session.scalar(
+            select(StatementRow).where(
+                StatementRow.campaign_id == projection.campaign_id,
+                StatementRow.slug == statement.slug,
+            )
+        )
+        if statement_row is None:
+            statement_row = StatementRow(
+                id=statement.event_id or new_id("stm"),
+                campaign_id=projection.campaign_id,
+                slug=statement.slug,
+                speaker_id=statement.speaker_id,
+                proposition=statement.proposition,
+                topic=statement.topic,
+                kind=statement.kind.value,
+                is_true=statement.is_true,
+                audience_ids_json=list(statement.audience_ids),
+            )
+            session.add(statement_row)
+        else:
+            statement_row.proposition = statement.proposition
+            statement_row.topic = statement.topic
+            statement_row.kind = statement.kind.value
+            statement_row.is_true = statement.is_true
+            statement_row.audience_ids_json = list(statement.audience_ids)
+
+    for knowledge in projection.knowledge.values():
+        knowledge_row = session.scalar(
+            select(KnowledgeRow).where(
+                KnowledgeRow.campaign_id == projection.campaign_id,
+                KnowledgeRow.entity_id == knowledge.entity_id,
+                KnowledgeRow.statement_slug == knowledge.statement_slug,
+            )
+        )
+        if knowledge_row is None:
+            knowledge_row = KnowledgeRow(
+                id=knowledge.event_id or new_id("knw"),
+                campaign_id=projection.campaign_id,
+                entity_id=knowledge.entity_id,
+                statement_slug=knowledge.statement_slug,
+                source=knowledge.source,
+                event_id=knowledge.event_id,
+            )
+            session.add(knowledge_row)
+        else:
+            knowledge_row.source = knowledge.source
+
+    for relationship in projection.relationships.values():
+        relationship_row = session.scalar(
+            select(RelationshipRow).where(
+                RelationshipRow.campaign_id == projection.campaign_id,
+                RelationshipRow.from_id == relationship.from_id,
+                RelationshipRow.to_id == relationship.to_id,
+                RelationshipRow.dimension == relationship.dimension.value,
+            )
+        )
+        if relationship_row is None:
+            relationship_row = RelationshipRow(
+                id=relationship.updated_event_id or new_id("rel"),
+                campaign_id=projection.campaign_id,
+                from_id=relationship.from_id,
+                to_id=relationship.to_id,
+                dimension=relationship.dimension.value,
+                value=relationship.value,
+                event_id=relationship.updated_event_id,
+            )
+            session.add(relationship_row)
+        else:
+            relationship_row.value = relationship.value
+            relationship_row.event_id = relationship.updated_event_id
+
+    for clock in projection.clocks.values():
+        clock_row = session.scalar(
+            select(ClockRow).where(
+                ClockRow.campaign_id == projection.campaign_id, ClockRow.slug == clock.slug
+            )
+        )
+        if clock_row is None:
+            clock_row = ClockRow(
+                id=clock.created_event_id or new_id("clk"),
+                campaign_id=projection.campaign_id,
+                slug=clock.slug,
+                name=clock.name,
+                segments=clock.segments,
+                filled=clock.filled,
+                trigger=clock.trigger,
+                owner_id=clock.owner_id,
+                visibility=clock.visibility.value,
+                created_event_id=clock.created_event_id,
+            )
+            session.add(clock_row)
+        else:
+            clock_row.filled = clock.filled
+            clock_row.name = clock.name
+            clock_row.segments = clock.segments
+            clock_row.trigger = clock.trigger
+            clock_row.owner_id = clock.owner_id
+            clock_row.visibility = clock.visibility.value
 
 
 def create_checkpoint(session: Session, campaign_id: str) -> CheckpointRow:

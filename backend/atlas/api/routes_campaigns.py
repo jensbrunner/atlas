@@ -25,6 +25,7 @@ def _response(row: object) -> CampaignResponse:
         current_time=model.current_time,
         seed=model.seed,
         created_at=model.created_at,
+        ending=model.ending,
     )
 
 
@@ -34,6 +35,7 @@ def create_campaign(request: CampaignCreateRequest, session: SessionDep) -> Camp
         session,
         title=request.title or DEFAULT_TITLE,
         seed=request.seed if request.seed is not None else CAMPAIGN_SEED,
+        template_slug=request.template_slug or "river_fixer",
     )
     session.commit()
     return _response(result.campaign)

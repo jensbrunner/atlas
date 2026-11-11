@@ -151,8 +151,12 @@ def get_state(campaign_id: str, session: SessionDep) -> StateResponse:
         campaign_id=campaign_id,
         current_time=projection.current_time,
         state_version=projection.state_version,
+        status=projection.status.value,
         scene=player_scene_view(projection),
         entities=public["entities"],
+        clocks=public["clocks"],
+        knowledge=public["knowledge"],
+        ending=public["ending"],
         recent_observations=[
             ObservationResponse(
                 event_id=entry["event_id"],

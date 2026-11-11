@@ -21,7 +21,8 @@ from atlas.seed.broken_span import SeedResult, seed_broken_span
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-EXPECTED_SEED_ENTITIES = 17
+EXPECTED_SEED_ENTITIES = 19
+EXPECTED_SEED_EVENTS = 33
 
 
 def test_seed_fixture_state_and_replay(session: Session, seed_result: SeedResult) -> None:
@@ -33,14 +34,14 @@ def test_seed_fixture_state_and_replay(session: Session, seed_result: SeedResult
     assert len(projection.entities) == EXPECTED_SEED_ENTITIES
     assert projection.entity_by_slug("rowan") is not None
     assert projection.entity_by_slug("sacred_stones") is not None
-    assert projection.last_event_seq == EXPECTED_SEED_ENTITIES
+    assert projection.last_event_seq == EXPECTED_SEED_EVENTS
 
     events = load_events(session, campaign.id)
-    assert [event.sequence for event in events] == list(range(1, EXPECTED_SEED_ENTITIES + 1))
+    assert [event.sequence for event in events] == list(range(1, EXPECTED_SEED_EVENTS + 1))
 
     report = verify_replay(session, campaign.id)
     assert report.matched
-    assert report.event_seq == EXPECTED_SEED_ENTITIES
+    assert report.event_seq == EXPECTED_SEED_EVENTS
     assert report.live_hash == hash_projection(replay_projection(session, campaign.id))
 
 

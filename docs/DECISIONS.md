@@ -214,12 +214,60 @@ application; the losing writer either returns the committed winner or reports a
 typed conflict. Distinct concurrent actions in separate processes are not queued
 and may need a client retry, which is acceptable for a local single-user app.
 
+## ADR-016 — Four truths, not one omniscient fact store
+
+Accepted. M2 separates canonical facts (`facts`), spoken statements
+(`statements`), character knowledge links (`knowledge`), and relationships.
+Statements carry a hidden `is_true` value and a `kind` (`claim`, `lie`,
+`misconception`, `rumor`, `promise`, `discovery`). A speaker automatically knows
+what they said; learning a statement is idempotent.
+
+Player views return only statements the actor knows, and never `is_true`. This
+keeps "the magistrate believes the stones are ordinary" distinct from "the
+stones are sacred" without letting a narrator or model decide truth.
+
+## ADR-017 — Character templates, four attributes, and trained skills
+
+Accepted. Player characters start from one of three templates (`river_fixer`,
+`town_advocate`, `stone_warden`) with Might, Agility, Insight, and Presence plus
+training in Negotiation, Engineering, Confrontation, and Survival. NPCs use the
+same challenge math through static data. A challenge modifier is
+`attribute + training`; 2d6 plus modifier minus difficulty maps to failure,
+mixed success, or success.
+
+Templates avoid a long creation workflow while still producing genuinely
+different viable paths. Attributes and training are safe to expose in player
+views; NPC goals, plans, and beliefs are not.
+
+## ADR-018 — Clocks advance only through explicit commands
+
+Accepted. M2 opens three faction/situation clocks: `storm_arrival` (6),
+`giant_deadline` (4), and `town_unrest` (4). Clock changes are typed
+`clock.advanced` events caused by explicit adjudicator commands, not hidden
+passage-of-time side effects. The storm ticks once per whole two-hour block
+inside an explicit `AdvanceTimeCommand`, so ordinary short actions do not
+silently end a campaign.
+
+Filling a clock can produce a clock-forced ending (`storm_flood`,
+`bridge_collapse`, `town_revolt`). Scripted paths additionally reach
+`compromise_shared_guardianship`, `flood_gate_repaired`, `giant_driven_off`,
+`stones_returned`, and `town_abandoned`. Once a campaign has an ending, further
+commands are rejected.
+
+## ADR-019 — Test-only deterministic seed injection
+
+Accepted. `TurnService` accepts an optional `seed_provider`; production uses the
+OS CSPRNG, while tests and the M2 demo supply a fixed sequence. Each turn still
+persists its seed and resumes with the stored value, so crash recovery and exact
+replay semantics are unchanged. This makes divergent acceptance paths
+reproducible without weakening the real RNG.
+
 ## Deferred decisions
 
 - DB-level append-only triggers and campaign-delete semantics.
 - Async provider gateway and provider capability discovery (M3).
 - FTS5 retrieval and context token budgets (M3).
-- Clock scheduling and offline wall-clock policy (M2/M6).
+- Offline wall-clock scheduling and long-running clock policy (M3/M6).
 - Export/import archive format and deletion confirmation flow (M4/M6).
 - Exact model IDs and pricing table: verify at integration time; do not assume
   the examples in VISION.md are still available.

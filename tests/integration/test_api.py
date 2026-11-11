@@ -40,6 +40,44 @@ def test_health_and_campaign_endpoints(database_url: str) -> None:
         assert missing.json()["error"]["code"] == "not_found"
 
 
+def test_m2_campaign_and_state_expose_public_progress_only(database_url: str) -> None:
+    upgrade_database(database_url)
+    app = create_app(Settings(database_url=database_url, mode="offline_test"))
+
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/campaigns",
+            json={"template_slug": "town_advocate"},
+        )
+        assert created.status_code == 201
+        campaign = created.json()
+        assert campaign["ending"] is None
+        assert campaign["status"] == "active"
+        campaign_id = campaign["id"]
+
+        state = client.get(f"/api/v1/campaigns/{campaign_id}/state")
+        assert state.status_code == 200
+        body = state.json()
+        assert body["status"] == "active"
+        assert body["ending"] is None
+        assert {clock["slug"] for clock in body["clocks"]} == {
+            "storm_arrival",
+            "giant_deadline",
+            "town_unrest",
+        }
+        assert all(clock["segments"] > 0 for clock in body["clocks"])
+        knowledge = body["knowledge"]
+        assert knowledge
+        assert all("is_true" not in entry for entry in knowledge)
+        actor = next(item for item in body["entities"] if item["slug"] == "rowan")
+        assert actor["attributes"]["presence"] == 2
+
+        rendered = state.text
+        assert "is_true" not in rendered
+        assert "caravan_guild_secret" not in rendered
+        assert "M0_GM_ONLY_CARAVAN_STONE_SOURCE" not in rendered
+
+
 def test_health_reports_missing_schema(database_url: str) -> None:
     app = create_app(Settings(database_url=database_url, mode="offline_test"))
     with TestClient(app) as client:

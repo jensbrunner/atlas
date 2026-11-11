@@ -1,4 +1,4 @@
-# Architecture (M1)
+# Architecture (M2)
 
 ATLAS separates authority from generation. The current slice proves the
 authoritative side with deterministic local components and no language model.
@@ -44,8 +44,9 @@ roll reproduces the exact dice.
   dice, outcome contracts, and projection rules. It is the only authority that
   mutates state.
 - **Game pipeline** (`atlas.game`) parses text into `IntentProposal`, adjudicates
-  it into typed commands, renders narration, and drives the lifecycle. In M1 all
-  three components are deterministic and network-free.
+  it into typed commands, renders narration, and drives the lifecycle. In M2 all
+  three components are deterministic and network-free; challenges use the four
+  attributes and trained skills rather than a model.
 - **Persistence** (`atlas.persistence`) assigns event IDs/sequences, commits
   batches, writes projections and observations, replays history, and hashes
   state. It never invents domain events.
@@ -81,7 +82,10 @@ turn instead of applying effects twice.
 | Intent/outcome on pending turn | proposal data, re-validated before commit |
 | Narration | validated stored prose, never a command source |
 | Fake model content | test data only |
-| Seed belief/lie strings | fixture metadata, not canonical facts |
+| Statements and hidden `is_true` | canonical GM truth, never exposed to players |
+| Knowledge links | canonical facts about who heard what |
+| Relationships and clocks | canonical, derived from validated events |
+| Seed belief/lie strings | fixture metadata, projected into statements where used |
 
 ## Directory responsibilities
 
@@ -93,6 +97,7 @@ backend/atlas/models/       gateway protocol and deterministic fake
 backend/atlas/persistence/  SQLAlchemy tables, repositories, replay, Alembic runner
 backend/atlas/seed/         structured Broken Span fixture
 migrations/                 schema history
+scripts/m2_paths.py         three divergent M2 paths with replay checks
 scripts/m1_demo.py          deterministic text-play demonstration
 scripts/offline_turn.py     legacy M0 scripted-plan demonstration
 tests/                      unit, integration, end-to-end
@@ -100,7 +105,7 @@ tests/                      unit, integration, end-to-end
 
 ## Non-goals in this slice
 
-No live model narration, retrieval, facts/knowledge tables, clocks, frontend,
-export, or originality engine. The M1 proof is that a seeded world survives a
-text turn, phase crashes, duplicate/concurrent requests, restart, and exact
-100-turn replay without an LLM.
+No live model narration, retrieval, frontend, export, or originality engine. The
+M2 proof is that scripted negotiation, engineering, and confrontation paths reach
+different persistent endings, each replays exactly, and GM-only truth never
+reaches a player-facing view.

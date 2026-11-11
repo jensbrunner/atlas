@@ -1,8 +1,9 @@
-"""Deterministic, network-free intent parsing for M1.
+"""Deterministic, network-free intent parsing.
 
-This is intentionally a small grammar, not a language model. M1 proves the
-lifecycle and adjudication boundary. M3 may replace this parser with a
-constrained model, but the output contract and validation remain identical.
+This is intentionally a small grammar, not a language model. It covers the M1
+verbs plus the M2 social, engineering, gathering, gift, and abandonment actions.
+M3 may replace this parser with a constrained model, but the output contract and
+validation remain identical.
 """
 
 from __future__ import annotations
@@ -98,7 +99,7 @@ def _wait_minutes(text: str) -> int:
 
 
 class DeterministicIntentParser:
-    """Parse a small set of explicit travel, observation, search, speech, and wait actions."""
+    """Parse explicit travel, observation, search, speech, social, and craft actions."""
 
     def parse(
         self,
@@ -151,6 +152,98 @@ class DeterministicIntentParser:
                 text=cleaned,
             )
 
+        if re.match(r"^(negotiate|parley|bargain|persuade)\b", normalized):
+            target = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.NPC},
+                exclude_id=actor.id,
+            )
+            return IntentProposal(
+                kind=IntentKind.NEGOTIATE,
+                actor_id=actor.id,
+                target_id=target.id,
+                target_slug=target.slug,
+                text=cleaned,
+            )
+
+        if re.match(r"^(confront|challenge|threaten|attack|fight)\b", normalized):
+            target = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.NPC},
+                exclude_id=actor.id,
+            )
+            return IntentProposal(
+                kind=IntentKind.CONFRONT,
+                actor_id=actor.id,
+                target_id=target.id,
+                target_slug=target.slug,
+                text=cleaned,
+            )
+
+        if re.match(r"^(engineer|repair|fix|rebuild|brace)\b", normalized):
+            target = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.LOCATION},
+                exclude_id=actor.id,
+            )
+            return IntentProposal(
+                kind=IntentKind.ENGINEER,
+                actor_id=actor.id,
+                target_id=target.id,
+                target_slug=target.slug,
+                text=cleaned,
+            )
+
+        if re.match(r"^(gather|collect|take|fetch)\b", normalized) or re.match(
+            r"^pick up\b", normalized
+        ):
+            target = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.ITEM},
+                exclude_id=actor.id,
+            )
+            return IntentProposal(
+                kind=IntentKind.GATHER,
+                actor_id=actor.id,
+                target_id=target.id,
+                target_slug=target.slug,
+                text=cleaned,
+            )
+
+        if re.match(r"^give\b", normalized):
+            item = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.ITEM},
+                exclude_id=actor.id,
+            )
+            target = _match_entity(
+                projection,
+                normalized,
+                kinds={EntityKind.NPC},
+                exclude_id=actor.id,
+            )
+            return IntentProposal(
+                kind=IntentKind.GIVE,
+                actor_id=actor.id,
+                target_id=target.id,
+                target_slug=target.slug,
+                item_slug=item.slug,
+                quantity=1,
+                text=cleaned,
+            )
+
+        if re.match(r"^(abandon|flee|forfeit)\b", normalized):
+            return IntentProposal(
+                kind=IntentKind.ABANDON,
+                actor_id=actor.id,
+                text=cleaned,
+            )
+
         if re.match(r"^(search|scavenge|investigate)\b", normalized) or re.match(
             r"^look for\b", normalized
         ):
@@ -173,5 +266,17 @@ class DeterministicIntentParser:
 
         raise UnparsedIntentError(
             "the action did not match a supported intent",
-            supported=["move", "observe", "search", "speak", "wait"],
+            supported=[
+                "move",
+                "observe",
+                "search",
+                "speak",
+                "wait",
+                "negotiate",
+                "engineer",
+                "confront",
+                "gather",
+                "give",
+                "abandon",
+            ],
         )

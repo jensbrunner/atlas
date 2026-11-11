@@ -1,4 +1,4 @@
-# Data Model (M1)
+# Data Model (M2)
 
 The event ledger is history. Relational state is a projection that can be rebuilt
 from history and checked against a canonical hash.
@@ -8,7 +8,7 @@ from history and checked against a canonical hash.
 ### `campaigns`
 
 `id`, `title`, `rules_version`, `status`, `state_version`, `current_time`, `seed`,
-`settings_json`, `created_at`, `updated_at`.
+`settings_json`, `ending_json`, `created_at`, `updated_at`. `ending_json` stores the terminal outcome and summary once a campaign completes.
 
 `state_version` is derived from `turn.committed` events during replay.
 `current_time` is integer world minutes from campaign epoch.
@@ -26,7 +26,10 @@ Unique `(campaign_id, slug)`. Kinds: `player_character`, `npc`, `location`,
 `entity_id` (PK), `campaign_id`, `version`, `state_json`.
 
 One row per entity, derived only from events. Mutable values include
-`location_id`, `health`, `stress`, `supplies`, `currency`, and item `quantity`.
+`location_id`, `health`, `stress`, `supplies`, `currency`, item `quantity`,
+character `inventory`, and named `flags` such as `accepts_shared_guard`,
+`repaired`, or `driven_off`. Character static data carries `attributes`,
+`training`, `template`, and NPC `goal`/`plan`.
 Per-entity `version` increments when a state-changing event is applied.
 
 ### `events` (append-only)
@@ -35,7 +38,7 @@ Per-entity `version` increments when a state-changing event is applied.
 `payload_json`, `inverse_json`, `occurred_at_world`, `created_at`,
 `schema_version`, `provenance_json`, `visibility`, `cause_event_ids_json`.
 
-Unique `(campaign_id, seq)`, contiguous from 1. M1 event types:
+Unique `(campaign_id, seq)`, contiguous from 1. M1/M2 event types:
 
 | Type | Payload | Projection effect |
 |---|---|---|
@@ -44,6 +47,17 @@ Unique `(campaign_id, seq)`, contiguous from 1. M1 event types:
 | `entity.moved` | from/to location, reason | Set `location_id` |
 | `time.advanced` | minutes, before, after, reason | Set campaign world time |
 | `scene.observed` | text, kind, subject IDs | Append observation |
+| `fact.recorded` | fact slug, text, visibility | Insert canonical fact |
+| `statement.recorded` | statement slug, speaker, proposition, topic, kind, hidden truth, audience | Insert statement and speaker knowledge |
+| `knowledge.recorded` | entity, statement slug, source | Link a character to a statement |
+| `relationship.changed` | from/to, dimension, before, after | Set relationship value |
+| `clock.created` | clock slug, name, segments, fill, trigger, owner, visibility | Insert clock |
+| `clock.advanced` | clock, delta, before, after, reason | Advance clock |
+| `item.transferred` | item, quantity, origin, holder | Reduce item quantity, add inventory |
+| `item.given` | holder, recipient, item, quantity | Move inventory between characters |
+| `item.consumed` | holder, item, quantity | Remove inventory |
+| `entity.flag_set` | key, before, after | Set entity flag |
+| `campaign.ended` | outcome, summary | Complete campaign and record ending |
 | `turn.committed` | turn ID, ordinal, new state version | Increment campaign version |
 
 Payloads are validated by `domain.events.PAYLOAD_MODELS`; unknown types or extra
@@ -57,7 +71,8 @@ Event IDs and sequences are assigned by the persistence layer, never by a model.
 
 Unique `(campaign_id, seq)`; indexed by `(campaign_id, turn_id)`. Observations
 are derived from `scene.observed` events and are part of the canonical state
-hash. Kinds are `arrival`, `search`, `speech`, `observation`, and `wait`.
+hash. Kinds include `arrival`, `search`, `speech`, `observation`, `wait`,
+`discovery`, `negotiation`, `engineering`, `confrontation`, and `ending`.
 
 ### `turns`
 
@@ -93,6 +108,43 @@ Unique `(campaign_id, event_seq)`. Repeating a checkpoint at the same sequence
 returns the existing row if the hash matches; a hash mismatch is an invariant
 violation.
 
+### `facts`
+
+`id`, `campaign_id`, `slug`, `text`, `visibility`. Canonical GM truths such as
+the nature of the sacred stones and the storm timeline.
+
+### `statements`
+
+`id`, `campaign_id`, `slug`, `speaker_id`, `proposition`, `topic`, `kind`,
+`is_true`, `audience_ids_json`.
+
+`kind` is `claim`, `lie`, `misconception`, `rumor`, `promise`, or `discovery`.
+`is_true` is GM truth and is never serialized into a player view. Speakers
+automatically know what they said.
+
+### `knowledge`
+
+`id`, `campaign_id`, `entity_id`, `statement_slug`, `source`, `event_id`.
+
+Unique `(campaign_id, entity_id, statement_slug)`. Records who has heard or
+discovered which statement; learning the same statement twice is a no-op.
+
+### `relationships`
+
+`id`, `campaign_id`, `from_id`, `to_id`, `dimension`, `value`, `event_id`.
+
+Unique `(campaign_id, from_id, to_id, dimension)`. Dimensions are `trust` and
+`respect`; values stay in `[-5, 5]`.
+
+### `clocks`
+
+`id`, `campaign_id`, `slug`, `name`, `segments`, `filled`, `trigger`,
+`owner_id`, `visibility`, `created_event_id`.
+
+Unique `(campaign_id, slug)`. The Broken Span fixture opens `storm_arrival` (6),
+`giant_deadline` (4), and `town_unrest` (4). Clock advancement is always an
+explicit command; filling a clock can force an ending.
+
 ## Projection and hashing
 
 `domain.projection.apply_event` applies one validated envelope and rejects:
@@ -103,12 +155,16 @@ violation.
 - unknown/stale location, moving to the same location;
 - stale time or inconsistent time step;
 - an observation whose subject does not exist;
+- duplicate facts/statements/clocks or unknown knowledge statements;
+- stale relationship, clock, or flag `before` values;
+- item transfers that exceed available quantity or reach an invalid holder;
+- a second campaign ending;
 - a turn commit that does not increment the version by exactly one.
 
-`hash_projection` canonicalizes campaign ID, current time, state version, sorted
-entities (ID, kind, slug, display name, static, state, per-entity version,
-retirement), and sorted observations (event ID, sequence, turn ID, world time,
-text, kind, subject IDs, visibility). It serializes compact sorted JSON and
+`hash_projection` canonicalizes campaign ID, current time, state version,
+status, ending, sorted entities (ID, kind, slug, display name, static, state,
+per-entity version, retirement), sorted observations, facts, statements
+(including hidden truth), knowledge links, relationships, and clocks. It serializes compact sorted JSON and
 applies SHA-256. `verify_replay` compares the live projection hash with a hash
 rebuilt from events.
 
@@ -135,8 +191,8 @@ rebuilt from events.
 
 ## Deferred to later milestones
 
-`facts`, `knowledge`, `statements`, `relationships`, `items`, `locations`,
-`npc_goals`, `factions`, `clocks`, `scenes`, `narrative_fingerprints`,
-`player_preferences`, and `model_calls`. M1 represents locations and items as
-entities and stores observations in a journal projection; M2 will normalize
+`scenes`, `narrative_fingerprints`, `player_preferences`, and `model_calls`.
+M2 represents locations and items as entities, stores observations in a journal
+projection, and normalizes facts, statements, knowledge, relationships, and
+clocks. Later milestones will add
 specialized fields and add the four-truth model.

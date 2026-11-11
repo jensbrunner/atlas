@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -50,6 +51,7 @@ class CampaignRow(Base):
     current_time: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     seed: Mapped[int] = mapped_column(BigInteger, nullable=False)
     settings_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    ending_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )
@@ -225,3 +227,101 @@ class CheckpointRow(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )
+
+
+class FactRow(Base):
+    __tablename__ = "facts"
+    __table_args__ = (UniqueConstraint("campaign_id", "slug", name="uq_facts_campaign_slug"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility: Mapped[str] = mapped_column(String(32), nullable=False, default="GM_ONLY")
+
+
+class StatementRow(Base):
+    __tablename__ = "statements"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "slug", name="uq_statements_campaign_slug"),
+        Index("ix_statements_campaign_speaker", "campaign_id", "speaker_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    speaker_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    proposition: Mapped[str] = mapped_column(Text, nullable=False)
+    topic: Mapped[str] = mapped_column(String(80), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="claim")
+    is_true: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    audience_ids_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+
+
+class KnowledgeRow(Base):
+    __tablename__ = "knowledge"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_id", "entity_id", "statement_slug", name="uq_knowledge_entity_statement"
+        ),
+        Index("ix_knowledge_campaign_entity", "campaign_id", "entity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    statement_slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class RelationshipRow(Base):
+    __tablename__ = "relationships"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_id", "from_id", "to_id", "dimension", name="uq_relationships_pair"
+        ),
+        Index("ix_relationships_campaign_from", "campaign_id", "from_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    from_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    to_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    dimension: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class ClockRow(Base):
+    __tablename__ = "clocks"
+    __table_args__ = (UniqueConstraint("campaign_id", "slug", name="uq_clocks_campaign_slug"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    segments: Mapped[int] = mapped_column(Integer, nullable=False)
+    filled: Mapped[int] = mapped_column(Integer, nullable=False)
+    trigger: Mapped[str] = mapped_column(String(300), nullable=False)
+    owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    visibility: Mapped[str] = mapped_column(String(32), nullable=False, default="PUBLIC")
+    created_event_id: Mapped[str] = mapped_column(String(64), nullable=False)

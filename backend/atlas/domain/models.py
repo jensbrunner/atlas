@@ -41,6 +41,23 @@ class ResourceName(StrEnum):
     CURRENCY = "currency"
 
 
+class RelationshipDimension(StrEnum):
+    TRUST = "trust"
+    RESPECT = "respect"
+    FEAR = "fear"
+
+
+class StatementKind(StrEnum):
+    """Why a statement exists, without asserting that it is true."""
+
+    CLAIM = "claim"
+    LIE = "lie"
+    MISCONCEPTION = "misconception"
+    RUMOR = "rumor"
+    PROMISE = "promise"
+    DISCOVERY = "discovery"
+
+
 class TurnStatus(StrEnum):
     RECEIVED = "RECEIVED"
     PARSED = "PARSED"
@@ -68,6 +85,7 @@ class Campaign(StrictModel):
     current_time: int = Field(default=0, ge=0)
     seed: int
     settings: CampaignSettings = Field(default_factory=CampaignSettings)
+    ending: dict[str, Any] | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

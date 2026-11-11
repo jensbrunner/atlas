@@ -12,7 +12,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from atlas.domain.models import EntityKind, ResourceName, Visibility
+from atlas.domain.models import (
+    EntityKind,
+    RelationshipDimension,
+    ResourceName,
+    StatementKind,
+    Visibility,
+)
 
 
 class EventType(StrEnum):
@@ -21,6 +27,17 @@ class EventType(StrEnum):
     ENTITY_MOVED = "entity.moved"
     TIME_ADVANCED = "time.advanced"
     SCENE_OBSERVED = "scene.observed"
+    FACT_RECORDED = "fact.recorded"
+    STATEMENT_RECORDED = "statement.recorded"
+    KNOWLEDGE_RECORDED = "knowledge.recorded"
+    RELATIONSHIP_CHANGED = "relationship.changed"
+    CLOCK_CREATED = "clock.created"
+    CLOCK_ADVANCED = "clock.advanced"
+    ITEM_TRANSFERRED = "item.transferred"
+    ITEM_GIVEN = "item.given"
+    ITEM_CONSUMED = "item.consumed"
+    ENTITY_FLAG_SET = "entity.flag_set"
+    CAMPAIGN_ENDED = "campaign.ended"
     TURN_COMMITTED = "turn.committed"
 
 
@@ -79,8 +96,123 @@ class SceneObservedPayload(BaseModel):
     model_config = _strict()
 
     text: str = Field(min_length=1, max_length=4000)
-    kind: Literal["arrival", "search", "speech", "observation", "wait"] = "observation"
+    kind: Literal[
+        "arrival",
+        "search",
+        "speech",
+        "observation",
+        "wait",
+        "discovery",
+        "negotiation",
+        "engineering",
+        "confrontation",
+        "ending",
+    ] = "observation"
     subject_ids: list[str] = Field(default_factory=list)
+
+
+class FactRecordedPayload(BaseModel):
+    model_config = _strict()
+
+    fact_slug: str = Field(min_length=1, max_length=80)
+    text: str = Field(min_length=1, max_length=1_000)
+    visibility: Visibility = Visibility.GM_ONLY
+
+
+class StatementRecordedPayload(BaseModel):
+    model_config = _strict()
+
+    statement_slug: str = Field(min_length=1, max_length=80)
+    speaker_id: str
+    proposition: str = Field(min_length=1, max_length=1_000)
+    topic: str = Field(min_length=1, max_length=80)
+    kind: StatementKind = StatementKind.CLAIM
+    is_true: bool
+    audience_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeRecordedPayload(BaseModel):
+    model_config = _strict()
+
+    entity_id: str
+    statement_slug: str = Field(min_length=1, max_length=80)
+    source: str = Field(min_length=1, max_length=80)
+
+
+class RelationshipChangedPayload(BaseModel):
+    model_config = _strict()
+
+    from_id: str
+    to_id: str
+    dimension: RelationshipDimension
+    before: int
+    after: int
+
+
+class ClockCreatedPayload(BaseModel):
+    model_config = _strict()
+
+    clock_slug: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+    segments: int = Field(ge=1, le=20)
+    filled: int = Field(ge=0, le=20)
+    trigger: str = Field(min_length=1, max_length=300)
+    owner_id: str | None = None
+    visibility: Visibility = Visibility.PUBLIC
+
+
+class ClockAdvancedPayload(BaseModel):
+    model_config = _strict()
+
+    clock_slug: str = Field(min_length=1, max_length=80)
+    delta: int
+    before: int
+    after: int
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class ItemTransferredPayload(BaseModel):
+    model_config = _strict()
+
+    item_id: str
+    item_slug: str = Field(min_length=1, max_length=80)
+    item_name: str = Field(min_length=1, max_length=200)
+    quantity: int = Field(ge=1)
+    from_location_id: str | None = None
+    to_entity_id: str
+
+
+class ItemConsumedPayload(BaseModel):
+    model_config = _strict()
+
+    holder_id: str
+    item_slug: str = Field(min_length=1, max_length=80)
+    quantity: int = Field(ge=1)
+
+
+class ItemGivenPayload(BaseModel):
+    model_config = _strict()
+
+    holder_id: str
+    recipient_id: str
+    item_slug: str = Field(min_length=1, max_length=80)
+    item_name: str = Field(min_length=1, max_length=200)
+    quantity: int = Field(ge=1)
+
+
+class EntityFlagSetPayload(BaseModel):
+    model_config = _strict()
+
+    key: str = Field(min_length=1, max_length=64)
+    before: Any = None
+    after: Any = None
+
+
+class CampaignEndedPayload(BaseModel):
+    model_config = _strict()
+
+    outcome: str = Field(min_length=1, max_length=80)
+    summary: str = Field(min_length=1, max_length=2_000)
 
 
 PAYLOAD_MODELS: dict[EventType, type[BaseModel]] = {
@@ -89,6 +221,17 @@ PAYLOAD_MODELS: dict[EventType, type[BaseModel]] = {
     EventType.ENTITY_MOVED: EntityMovedPayload,
     EventType.TIME_ADVANCED: TimeAdvancedPayload,
     EventType.SCENE_OBSERVED: SceneObservedPayload,
+    EventType.FACT_RECORDED: FactRecordedPayload,
+    EventType.STATEMENT_RECORDED: StatementRecordedPayload,
+    EventType.KNOWLEDGE_RECORDED: KnowledgeRecordedPayload,
+    EventType.RELATIONSHIP_CHANGED: RelationshipChangedPayload,
+    EventType.CLOCK_CREATED: ClockCreatedPayload,
+    EventType.CLOCK_ADVANCED: ClockAdvancedPayload,
+    EventType.ITEM_TRANSFERRED: ItemTransferredPayload,
+    EventType.ITEM_GIVEN: ItemGivenPayload,
+    EventType.ITEM_CONSUMED: ItemConsumedPayload,
+    EventType.ENTITY_FLAG_SET: EntityFlagSetPayload,
+    EventType.CAMPAIGN_ENDED: CampaignEndedPayload,
     EventType.TURN_COMMITTED: TurnCommittedPayload,
 }
 

@@ -75,6 +75,7 @@ def test_one_turn_commits_events_resources_time_and_roll(
 ) -> None:
     campaign_id = seed_result.campaign.id
     plan = _plan(session, seed_result)
+    before_events = len(load_events(session, campaign_id))
     result = _submit(OfflineTurnService(session_factory), campaign_id, plan, expected_version=0)
 
     assert result.status.value == "COMMITTED"
@@ -101,7 +102,7 @@ def test_one_turn_commits_events_resources_time_and_roll(
         assert len(rolls) == 1
         assert turns[0].status == "COMMITTED"
         assert turns[0].snapshot_version == 0
-        assert len(load_events(check, campaign_id)) == 21
+        assert len(load_events(check, campaign_id)) == before_events + 4
         assert verify_replay(check, campaign_id).matched
 
         # The stored seed reproduces the exact committed dice.
@@ -194,6 +195,7 @@ def test_turn_committed_event_is_last_and_derives_version(
     seed_result: SeedResult,
 ) -> None:
     campaign_id = seed_result.campaign.id
+    before_events = len(load_events(session, campaign_id))
     _submit(
         OfflineTurnService(session_factory),
         campaign_id,
@@ -204,4 +206,4 @@ def test_turn_committed_event_is_last_and_derives_version(
         assert events[-1].event_type.value == "turn.committed"
         assert events[-1].payload["state_version"] == 1
         assert events[-1].turn_id is not None
-        assert check.scalar(select(func.count(EventRow.id))) == 21
+        assert check.scalar(select(func.count(EventRow.id))) == before_events + 4

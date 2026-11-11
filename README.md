@@ -4,13 +4,13 @@ A local-first, AI-native solo roleplaying engine. The authoritative world lives
 in SQLite as typed state plus an append-only event ledger; language models may
 propose, but only validated domain code mutates state.
 
-**Current status: milestone M1.** The repository contains a tested offline
-vertical slice: migrations, a seeded campaign, typed commands, deterministic
-seeded 2d6 rolls, a durable turn lifecycle, transactional turns, event replay,
-state hashing, checkpoints, observations/journal, a deterministic
-parser/adjudicator/fake narrator, a typed HTTP API, and a command-line demo. M1
-does not call a live language model and does not implement the frontend or the
-originality system.
+**Current status: milestone M2.** The repository contains a tested offline
+vertical slice: migrations, a structured Broken Span world, typed commands and
+four attributes, character templates and trained skills, deterministic seeded
+2d6 challenges, facts/statements/knowledge/relationships, faction clocks,
+inventory and gifts, divergent endings, a durable turn lifecycle, exact replay,
+a typed HTTP API, and command-line demos. M2 does not call a live language model
+and does not implement the frontend or the originality system.
 
 ## Requirements
 
@@ -28,17 +28,27 @@ uv run alembic upgrade head
 No cloud account or API key is required. Copy `.env.example` to `.env` only when
 you need to override defaults.
 
-## Offline demo
+## Offline demos
+
+```bash
+uv run python scripts/m2_paths.py --db data/m2_demo.db --reset
+```
+
+The M2 demo plays three divergent paths on separate campaigns — negotiation
+(`compromise_shared_guardianship`), engineering (`flood_gate_repaired`), and
+confrontation (`giant_driven_off`) — and verifies exact replay for each. It uses
+a scripted seed provider so challenges are reproducible without any network or
+model.
+
+The M1 demo remains available and shows twelve deterministic text turns plus
+duplicate-request idempotency:
 
 ```bash
 uv run python scripts/m1_demo.py --db data/m1_demo.db --reset
 ```
 
-The M1 demo migrates the database, seeds **The Broken Span**, plays twelve
-deterministic text turns (look, travel, search, wait, talk), verifies exact
-replay, and rechecks duplicate-request idempotency. Run it again without
-`--reset` to see the same turns returned from storage; `--json` emits the full
-machine-readable result.
+Run either demo again without `--reset` to continue from stored state; `--json`
+emits the full machine-readable result.
 
 The original M0 scripted-plan demo is still available:
 

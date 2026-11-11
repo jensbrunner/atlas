@@ -11,6 +11,7 @@ class CampaignCreateRequest(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
     seed: int | None = None
+    template_slug: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,79}$")
 
 
 class CampaignResponse(BaseModel):
@@ -24,6 +25,7 @@ class CampaignResponse(BaseModel):
     current_time: int
     seed: int
     created_at: datetime
+    ending: dict[str, Any] | None = None
 
 
 class CampaignListResponse(BaseModel):
@@ -98,8 +100,12 @@ class StateResponse(BaseModel):
     campaign_id: str
     current_time: int
     state_version: int
+    status: str = "active"
     scene: dict[str, Any]
     entities: list[dict[str, Any]]
+    clocks: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge: list[dict[str, Any]] = Field(default_factory=list)
+    ending: dict[str, Any] | None = None
     recent_observations: list[ObservationResponse] = Field(default_factory=list)
 
 

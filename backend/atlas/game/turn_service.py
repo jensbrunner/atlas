@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -175,12 +175,14 @@ class TurnService:
         adjudicator: DeterministicAdjudicator | None = None,
         narrator: Narrator | None = None,
         phase_hook: Any | None = None,
+        seed_provider: Callable[[], bytes] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._parser = parser or DeterministicIntentParser()
         self._adjudicator = adjudicator or DeterministicAdjudicator()
         self._narrator = narrator or FakeNarrator()
         self._phase_hook = phase_hook
+        self._seed_provider = seed_provider or generate_seed
 
     # ------------------------------------------------------------------ public
     def submit_text(
@@ -418,7 +420,7 @@ class TurnService:
                     )
 
                 ordinal = next_turn_ordinal(session, campaign_id)
-                seed = generate_seed()
+                seed = self._seed_provider()
                 row = TurnRow(
                     id=new_id("trn"),
                     campaign_id=campaign_id,

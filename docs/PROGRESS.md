@@ -1,8 +1,8 @@
 # Progress
 
 > Last updated: 2026-11-11  
-> Current milestone: **M1 complete**  
-> Next milestone: **M2 — minimal game, no frontier dependency**
+> Current milestone: **M2 complete**  
+> Next milestone: **M3 — AI integration and narration**
 
 ## Milestone status
 
@@ -10,12 +10,28 @@
 |---|---|---|
 | M0 — Scaffold and offline database | **Complete** | Migration, offline demo, replay/restart checks below |
 | M1 — Transactional turn engine | **Complete** | Text turns, durable lifecycle/crash recovery, API, duplicate/concurrency, rollback, 100-turn replay |
-| M2 — Minimal game, no frontier dependency | Not started | Broken Span is still a seed fixture; no clocks or four-truth tables |
+| M2 — Minimal game, no frontier dependency | **Complete** | Four attributes/templates, four-truth tables, inventory/gifts, three clocks, divergent endings, three scripted paths with exact replay, API state, M2 demo |
 | M3 — AI integration and narration | Not started | Only the deterministic fake gateway exists; no live provider calls |
 | M4 — Usable frontend | Not started | No frontend directory yet |
 | M5 — Narrative originality system | Not started | — |
 | M6 — Advanced simulation | Not started | — |
 | M7 — Optional future directions | Not started | — |
+
+## M2 checklist
+
+- [x] Add Might, Agility, Insight, and Presence plus three character templates and four trained skills.
+- [x] Resolve noncombat challenges deterministically from attributes, training, difficulty, and 2d6.
+- [x] Add locations, movement, item stacks, inventory transfers, gifts, and consumption.
+- [x] Add canonical facts, spoken statements (with hidden truth), knowledge links, and relationships.
+- [x] Add NPC goals/plans and the first three faction/situation clocks.
+- [x] Structure **The Broken Span** as an M2 fixture with materials, secrets, and multiple end conditions.
+- [x] Implement divergent persistent endings: compromise, repaired gate, driven-off giant, returned stones, abandonment, and clock-forced failures.
+- [x] Add an offline text/CLI play loop covering all M2 verbs.
+- [x] Prove scripted negotiation, engineering, and confrontation reach different persistent outcomes with exact replay.
+- [x] Keep M1 guarantees: validated proposals, atomic commit, durable lifecycle, no seed leakage, GM-only filtering.
+
+M2 is deterministic and network-free. No live model, cloud account, or API key
+was used.
 
 ## M1 checklist
 
@@ -98,6 +114,42 @@ RECEIVED -> PARSED -> RESOLVED -> NARRATED -> VALIDATED -> COMMITTED
 - `GET /api/v1/campaigns/{id}/journal`
 
 Typed `404`, `409`, and `422` mappings are documented in `docs/API.md`.
+
+## M2 implementation summary
+
+### Characters, challenges, and inventory
+
+- `backend/atlas/domain/characters.py` defines the four attributes, training,
+  three templates (`river_fixer`, `town_advocate`, `stone_warden`), and the
+  `attribute + training` challenge modifier.
+- Parser and adjudicator cover `negotiate`, `confront`, `engineer`, `gather`,
+  `give`, and `abandon`, plus the M1 verbs.
+- Item stacks carry `quantity`; `TransferItemCommand`, `GiveItemCommand`, and
+  `ConsumeItemCommand` move or consume inventory through validated events.
+
+### Four truths and clocks
+
+- New projections and tables: `facts`, `statements`, `knowledge`,
+  `relationships`, and `clocks`, plus `campaigns.ending_json`.
+- Statements store a hidden `is_true`; player views return only statements the
+  actor knows and never expose `is_true`.
+- `storm_arrival` (6), `giant_deadline` (4), and `town_unrest` (4) advance only
+  through explicit commands. Storm ticks only for whole two-hour blocks inside
+  an explicit `AdvanceTimeCommand`.
+- Filling a clock can force `storm_flood`, `bridge_collapse`, or `town_revolt`.
+- Path endings also include `compromise_shared_guardianship`,
+  `flood_gate_repaired`, `giant_driven_off`, `stones_returned`, and
+  `town_abandoned`.
+
+### API and demo
+
+- `POST /api/v1/campaigns` accepts `template_slug`.
+- Campaign responses expose `ending`; state responses expose `status`,
+  `clocks`, `knowledge`, and `ending`.
+- State entity views expose safe rules data (`template`, `attributes`,
+  `training`, `equipment`, `abilities`) and omit goals, plans, beliefs, and
+  other GM-only static fields.
+- `scripts/m2_paths.py` plays the three divergent paths and verifies replay.
 
 ## Commands executed and results (M1)
 
@@ -187,6 +239,81 @@ results and no project code is responsible.
 - `tests/e2e/test_m1_demo_script.py` — demo replay and idempotency across
   restarts.
 
+## Commands executed and results (M2)
+
+Environment: macOS arm64, Python 3.12.16 managed by `uv`; no cloud account.
+
+```text
+$ uv run pytest -p no:warnings
+114 passed in 5.80s
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+69 files already formatted
+
+$ uv run mypy
+Success: no issues found in 58 source files
+```
+
+### Migration chain
+
+The head is `9ddd09ccdad2` (M2). `tests/integration/test_migrations.py`
+upgrades to M2, checks the new tables and `ending_json`, inserts an M0-era
+campaign, downgrades through M1 to M0, and re-upgrades while preserving the row.
+
+### Offline M2 demo
+
+```text
+$ uv run python scripts/m2_paths.py --db data/m2_demo.db --reset
+== negotiation (town_advocate) ==
+  ... 2 turns ...
+  status: completed | ending: compromise_shared_guardianship | version: 2 | world minutes: 60
+  replay: matched at event 46
+== engineering (river_fixer) ==
+  ... 10 turns ...
+  status: completed | ending: flood_gate_repaired | version: 10 | world minutes: 520
+  replay: matched at event 79
+== confrontation (stone_warden) ==
+  ... 1 turn ...
+  status: completed | ending: giant_driven_off | version: 1 | world minutes: 30
+  replay: matched at event 39
+```
+
+IDs and event numbers vary per fresh database; each path checks
+`verify_replay(...).matched`. `tests/e2e/test_m2_path_script.py` reruns the demo
+in the same database, confirms three new campaigns reach the same distinct
+endings, and confirms each replays.
+
+### M2 tests added
+
+- `tests/integration/test_m2_paths.py` — negotiation, engineering,
+  confrontation, returned stones, abandonment, storm-forced ending, distinct
+  persistent endings, knowledge isolation, gift persistence, and event coverage.
+- `tests/integration/test_api.py` — `template_slug`, campaign `ending`, state
+  `status`/`clocks`/`knowledge`/`ending`, safe attribute exposure, no `is_true`
+  or GM-only leakage.
+- `tests/integration/test_migrations.py` — M2 head round trip and data
+  preservation through M1 and M0.
+- `tests/e2e/test_m2_path_script.py` — three-path demo and replay after restart.
+
+## Acceptance assessment for M2
+
+| M2 done criterion | Result |
+|---|---|
+| Scripted negotiation reaches a persistent outcome | `town_advocate` negotiates with Brannoc and Elin; success on both produces `compromise_shared_guardianship`, campaign status `completed`, and a matched replay |
+| Scripted engineering reaches a different outcome | `river_fixer` learns Durn's lead, finds the quarry seam, gathers stone/timber/fittings, repairs the gate, and produces `flood_gate_repaired` with a matched replay |
+| Scripted confrontation reaches a different outcome | `stone_warden` succeeds against Brannoc and produces `giant_driven_off` with a matched replay |
+| Outcomes persist and replay exactly | Each path checks `campaign.ending`, `projection.status`, and `verify_replay(...).matched`; `test_each_path_leaves_a_different_persistent_ending` proves three distinct endings |
+| Additional endings work | Tests cover `stones_returned`, `town_abandoned`, and the `storm_arrival` clock forcing `storm_flood` after an explicit 12-hour wait |
+| Four truths stay isolated | `test_player_state_never_exposes_hidden_truth` and the API test assert no `is_true`, GM-only slug, or secret marker reaches a player view |
+| Inventory and gifts persist | `test_gift_moves_inventory_between_characters` asserts exact quantities on both characters |
+| M1 guarantees hold | The full M1 suite, including the 100-turn replay and duplicate-request tests, still passes |
+
+**M2 is complete.** No live model narration, retrieval, frontend, or
+originality logic is claimed.
+
 ## Acceptance assessment for M1
 
 | M1 done criterion | Result |
@@ -207,11 +334,12 @@ or originality logic is claimed.
 
 ## Known limitations / unresolved items
 
-1. **Narrow deterministic grammar.** M1 understands explicit move/observe/search/
-   speak/wait text. It is not natural-language understanding and does not use a
-   model.
-2. **Only search rolls.** Social, engineering, combat, and faction systems are
-   M2/M6 work. Speech currently advances time and records an observation.
+1. **Narrow deterministic grammar.** M2 understands explicit move/observe/
+   search/speak/wait/negotiate/confront/engineer/gather/give/abandon text. It is
+   not natural-language understanding and does not use a model.
+2. **Challenges are deterministic 2d6, not tactical combat.** Social,
+   engineering, gathering, and confrontation are noncombat challenge paths; the
+   advanced combat simulation remains M6 work.
 3. **Cross-process distinct turns are not queued.** In-process turns are
    serialized per campaign. Two separate processes submitting distinct actions
    may produce a typed conflict; the client retries. Duplicate application is
@@ -220,8 +348,9 @@ or originality logic is claimed.
    trigger blocks direct `UPDATE`/`DELETE`; replay hashing detects tampering.
 5. **Narration secret filtering is marker-based.** It is defense in depth, not a
    semantic secret detector; M3 narrator checks must be stronger.
-6. **No four-truth tables, clocks, scenes, or narrative fingerprints.** Beliefs
-   and intentions remain seed-static metadata.
+6. **No scenes or narrative fingerprints.** M2 adds facts, statements,
+   knowledge, relationships, and clocks, but no scene graph or originality
+   system. NPC goals/plans remain seed-static metadata.
 7. **Raw roll seeds are stored unencrypted** in the local database. They are
    excluded from all current player-facing responses; an explicit reveal flow is
    still future work.
@@ -234,21 +363,20 @@ or originality logic is claimed.
     real processes. In-process duplicate concurrency, DB uniqueness, and CAS are
     tested.
 
-## Exact next step for the next agent (M2)
+## Exact next step for the next agent (M3)
 
-Start M2 on top of the M1 contracts; do not add a live model yet:
+Start M3 on top of the M2 contracts; live providers remain opt-in:
 
-1. Add the four attributes, initial character templates, skills, and noncombat
-   challenge resolution that consumes `OutcomeProposal`/typed commands.
-2. Add the four-truth structures needed for statements, knowledge assertions,
-   goals, and relationships, plus the first three faction clocks.
-3. Turn **The Broken Span** into a structured M2 fixture with inventoried items,
-   movement, dialogue/statement events, and multiple divergent end conditions.
-4. Add scripted negotiation, engineering, and confrontation paths and prove they
-   reach different persistent outcomes with exact replay.
-5. Add a basic offline text/CLI play loop built on `TurnService.submit_text`.
-6. Keep the M1 guarantees: validated proposals only, atomic commit, durable
-   lifecycle, no seed leakage, and player-only filtering.
+1. Add provider-neutral narration and intent adapters behind the existing
+   `IntentProposal`/`OutcomeProposal` contracts; never let model text issue
+   commands.
+2. Add context assembly and retrieval over the event ledger, facts, statements,
+   and knowledge without leaking `is_true` or GM-only material.
+3. Add an opt-in live-provider configuration path and tests that require no
+   network or credentials; keep deterministic fakes as the default.
+4. Strengthen narrator secret filtering beyond marker matching.
+5. Keep M1/M2 guarantees: validated proposals only, atomic commit, durable
+   lifecycle, no seed leakage, player-only filtering, and exact replay.
 
-Re-read `docs/DECISIONS.md` ADR-012 through ADR-015 for the boundaries M2 must
+Re-read `docs/DECISIONS.md` ADR-012 through ADR-019 for the boundaries M3 must
 preserve.

@@ -23,6 +23,12 @@ class IntentKind(StrEnum):
     SEARCH = "search"
     SPEAK = "speak"
     WAIT = "wait"
+    NEGOTIATE = "negotiate"
+    ENGINEER = "engineer"
+    CONFRONT = "confront"
+    GATHER = "gather"
+    GIVE = "give"
+    ABANDON = "abandon"
 
 
 class IntentProposal(BaseModel):
@@ -35,13 +41,26 @@ class IntentProposal(BaseModel):
     actor_id: str = Field(min_length=3, max_length=64)
     target_id: str | None = Field(default=None, min_length=3, max_length=64)
     target_slug: str | None = Field(default=None, min_length=1, max_length=80)
+    item_slug: str | None = Field(default=None, min_length=1, max_length=80)
+    quantity: int = Field(default=1, ge=1, le=999)
     requested_minutes: int | None = Field(default=None, ge=1, le=10_080)
     text: str = Field(min_length=1, max_length=2_000)
 
     @model_validator(mode="after")
     def _required_fields(self) -> IntentProposal:
-        if self.kind in {IntentKind.MOVE, IntentKind.SPEAK} and self.target_id is None:
+        targeted = {
+            IntentKind.MOVE,
+            IntentKind.SPEAK,
+            IntentKind.NEGOTIATE,
+            IntentKind.CONFRONT,
+            IntentKind.ENGINEER,
+            IntentKind.GATHER,
+            IntentKind.GIVE,
+        }
+        if self.kind in targeted and self.target_id is None:
             raise ValueError(f"{self.kind.value} intents require a target_id")
+        if self.kind is IntentKind.GIVE and self.item_slug is None:
+            raise ValueError("give intents require an item_slug")
         if self.kind is IntentKind.WAIT and self.requested_minutes is None:
             raise ValueError("wait intents require requested_minutes")
         return self
@@ -51,7 +70,18 @@ class ObservationProposal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1, max_length=4_000)
-    kind: Literal["arrival", "search", "speech", "observation", "wait"] = "observation"
+    kind: Literal[
+        "arrival",
+        "search",
+        "speech",
+        "observation",
+        "wait",
+        "discovery",
+        "negotiation",
+        "engineering",
+        "confrontation",
+        "ending",
+    ] = "observation"
     subject_ids: list[str] = Field(default_factory=list)
 
 
