@@ -1,91 +1,202 @@
 # ATLAS
 
-A local-first, AI-native solo roleplaying engine. The authoritative world lives
-in SQLite as typed state plus an append-only event ledger; language models may
-propose, but only validated domain code mutates state.
+A local-first harness for AI-narrated solo roleplay.
 
-**Current status: milestone M2.** The repository contains a tested offline
-vertical slice: migrations, a structured Broken Span world, typed commands and
-four attributes, character templates and trained skills, deterministic seeded
-2d6 challenges, facts/statements/knowledge/relationships, faction clocks,
-inventory and gifts, divergent endings, a durable turn lifecycle, exact replay,
-a typed HTTP API, and command-line demos. M2 does not call a live language model
-and does not implement the frontend or the originality system.
+The narrator is the game master. ATLAS is the table it works on: deterministic
+dice, bounded state tools, plain-text persistence, a hidden GM view, a
+player-facing view, and a localhost browser UI. There is no prewritten adventure,
+no story branches in the engine, and no database.
+
+> **Status:** the offline harness works end to end. Live OpenAI narration is
+> implemented and opt-in, but has not been exercised against a real key in this
+> repository yet.
+
+## What it does
+
+- You start a campaign from a short premise. A campaign generator invents the
+  place, factions, NPCs, clocks, secrets, a player character, and an opening
+  scene.
+- You type an action in the browser. A narrator model reads the GM packet, calls
+  tools when it needs to roll dice or change state, and writes the scene.
+- Inventory, health, stress, clocks, time, NPCs, factions, facts, and the journal
+  live in markdown files under `campaigns/<id>/`.
+- Every mechanical change goes through a validated tool. A failed model call or
+  invalid change leaves the files untouched.
+- The server renders a player view by stripping GM-only material from the same
+  canon the narrator sees. There is no second state copy to drift.
+- The world can evolve offscreen through a world agent, and a continuity auditor
+  can review the canon without rewriting it.
 
 ## Requirements
 
 - macOS or Linux with Python 3.12+
-- [`uv`](https://docs.astral.sh/uv/) (recommended; `brew install uv`)
+- [`uv`](https://docs.astral.sh/uv/)
+- Node.js 20+ and npm (for the frontend)
 
-## Setup
+## Quick start (offline, no API key)
 
 ```bash
-uv python install 3.12
 uv sync --group dev
-uv run alembic upgrade head
+uv run atlas serve
 ```
 
-No cloud account or API key is required. Copy `.env.example` to `.env` only when
-you need to override defaults.
-
-## Offline demos
+In a second terminal:
 
 ```bash
-uv run python scripts/m2_paths.py --db data/m2_demo.db --reset
+cd web
+npm install
+npm run dev
 ```
 
-The M2 demo plays three divergent paths on separate campaigns — negotiation
-(`compromise_shared_guardianship`), engineering (`flood_gate_repaired`), and
-confrontation (`giant_driven_off`) — and verifies exact replay for each. It uses
-a scripted seed provider so challenges are reproducible without any network or
-model.
+Open <http://localhost:5173>. The default provider is `fake`, which creates a
+deterministic demo campaign and returns fixed narration. No network calls are
+made.
 
-The M1 demo remains available and shows twelve deterministic text turns plus
-duplicate-request idempotency:
+For a single production-style server:
 
 ```bash
-uv run python scripts/m1_demo.py --db data/m1_demo.db --reset
+cd web && npm run build && cd ..
+uv run atlas serve
 ```
 
-Run either demo again without `--reset` to continue from stored state; `--json`
-emits the full machine-readable result.
+Open <http://127.0.0.1:8000>. FastAPI serves `web/dist` when it exists.
 
-The original M0 scripted-plan demo is still available:
+## Live narration (opt-in)
+
+Live calls require all three: the OpenAI provider, a key, and explicit cloud
+permission.
 
 ```bash
-uv run python scripts/offline_turn.py --db data/m0_demo.db --reset
+export ATLAS_PROVIDER=openai
+export ATLAS_OPENAI_API_KEY=sk-...
+export ATLAS_ALLOW_CLOUD=true
+uv run atlas serve
 ```
 
-## Development commands
+Models are configurable:
+
+```bash
+export ATLAS_CAMPAIGN_MODEL=gpt-6-luna
+export ATLAS_NARRATOR_MODEL=gpt-6-luna
+export ATLAS_WORLD_MODEL=gpt-6-luna
+export ATLAS_AUDITOR_MODEL=gpt-6-luna
+```
+
+ATLAS fails with a clear configuration error if cloud use is not allowed, the key
+is missing, or the provider name is unknown. It does not silently substitute a
+different model. The configured model is used as given; provider errors are
+reported as `provider_error`.
+
+Copy `.env.example` to `.env` for local overrides. Never commit `.env`.
+
+## Campaign files
+
+Each campaign is a directory of text files. Structured fields use YAML
+frontmatter; prose lives below it.
+
+```text
+campaigns/<id>/
+  campaign.md        # title, premise, tone, turn count, world time
+  character.md       # player sheet, inventory, conditions
+  world.md           # locations, factions, clocks, facts, situation
+  npcs/<slug>.md     # NPC sheet, goals, knowledge, description, GM secrets
+  journal.md         # player-facing chronological log
+  turns/0000.md      # opening scene
+  turns/0001.md      # player turns
+  turns/0001-world.md# offscreen world turns (GM-facing)
+```
+
+- **Canon is the full GM view.** Files may contain `<!-- gm --> ... <!-- /gm -->`
+  blocks and facts with `visibility: gm`.
+- **The player view is derived on the server.** GM blocks are stripped, hidden
+  facts and NPC knowledge are omitted, and locations/NPCs marked
+  `player_known: false` do not appear at all.
+- **A turn is all-or-nothing.** State is loaded into memory, tools mutate it, and
+  files are written only after validation passes. A failed narration or rejected
+  leak does not advance the campaign.
+- **The journal and turn files are the audit trail.** They record the action,
+  rolls, changes, model and usage, and the narration.
+
+## Mechanics
+
+Deliberately small:
+
+- Four attributes: Might, Agility, Insight, Presence.
+- A short skill list (Negotiation, Engineering, Confrontation, Survival by
+  default; additional skills are allowed).
+- `2d6 + attribute + skill + situational modifier` against a difficulty. The
+  result is `failure`, `mixed_success`, or `success`.
+- Health, stress, supplies, currency, conditions, inventory quantities.
+- Named clocks with segments and triggers.
+- World time in minutes.
+- Factions, NPC goals/knowledge, and canonical facts with GM/player visibility.
+
+The narrator decides when a roll is needed. The tool layer decides what is legal.
+
+## Agents and cost
+
+- **Narrator:** one model loop per player turn, plus tool round-trips. It cannot
+  write state directly; it calls tools.
+- **Campaign generator:** one structured call at campaign creation.
+- **World agent:** only on a manual "Advance world" action or when the narrator
+  asks for an offscreen turn. It does not narrate the player's scene.
+- **Continuity auditor:** on demand. Advisory only; it has no write tools.
+
+Context is assembled from the GM packet with recent-turn and character budgets.
+Every turn records token usage.
+
+## HTTP API
+
+```text
+GET    /healthz
+GET    /api/config
+GET    /api/campaigns
+POST   /api/campaigns                 {title?, prompt?, genre?, tone?}
+GET    /api/campaigns/{id}
+DELETE /api/campaigns/{id}
+GET    /api/campaigns/{id}/player
+GET    /api/campaigns/{id}/gm
+GET    /api/campaigns/{id}/turns
+POST   /api/campaigns/{id}/turns      {action}
+POST   /api/campaigns/{id}/world-turn {reason?}
+POST   /api/campaigns/{id}/audit
+```
+
+The player view never includes GM facts, NPC goals/knowledge, hidden entities, or
+GM prose blocks. The GM view includes all of it and is intended for local
+inspection only.
+
+## CLI
+
+```bash
+uv run atlas list
+uv run atlas demo --prompt "A harbor town with a missing shipment."
+uv run atlas show <campaign-id>
+uv run atlas serve --port 8000
+```
+
+`atlas demo` uses the fake provider and writes a real campaign directory, so you
+can inspect the files without a key.
+
+## Tests and checks
 
 ```bash
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
-uv run uvicorn atlas.main:app --reload
+cd web && npm run check && npm run build
 ```
 
-`GET /healthz` reports application/database status. The API can create and list
-campaigns, submit text turns, read turns, and read player-safe state and journal
-views. See `docs/API.md`.
+The automated suite uses only the fake provider. It makes no network calls and
+requires no credentials.
 
-## Layout
+## Not in this slice
 
-```text
-backend/atlas/        application package
-  api/                FastAPI routes and response schemas
-  domain/             IDs, models, events, commands, rules, outcomes, projections
-  game/               intent parser, adjudicator, narrator, turn service
-  models/             provider-neutral gateway + deterministic fake
-  persistence/        SQLAlchemy tables, repositories, replay, migrations
-  seed/               structured world fixtures
-migrations/           Alembic migrations
-scripts/              offline demos and setup helpers
-tests/                unit, integration, and end-to-end tests
-docs/                 decisions, progress, data model, API notes
-```
-
-See `docs/PROGRESS.md` for exact tested commands, known limitations, and the
-next milestone. See `docs/DECISIONS.md` for architectural choices. No model
-output is treated as authoritative: proposals are validated before commit.
+- Narration streaming (the UI waits for a committed turn).
+- Campaign export/import and deletion confirmation in the UI.
+- Automatic time-threshold world turns; world evolution is manual or
+  narrator-requested.
+- Semantic secret-leak detection. The current check is verbatim matching against
+  GM fact text, GM prose blocks, and hidden NPC names.
+- Multi-user or remote access. This is a localhost, single-user harness.

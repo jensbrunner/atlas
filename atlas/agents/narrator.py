@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from atlas.agents.loop import run_tool_loop
+from atlas.agents.prompts import load_prompt
+from atlas.agents.types import AgentReply, AgentRequest, Message, Provider
+from atlas.config import Settings
+from atlas.context import build_turn_prompt
+from atlas.state.schemas import CampaignState
+from atlas.tools.context import ToolContext
+from atlas.tools.registry import ToolRegistry
+
+
+class Narrator:
+    def __init__(self, provider: Provider, registry: ToolRegistry, settings: Settings) -> None:
+        self.provider = provider
+        self.registry = registry
+        self.settings = settings
+
+    def play(self, state: CampaignState, action: str, ctx: ToolContext) -> AgentReply:
+        request = AgentRequest(
+            model=self.settings.narrator_model,
+            instructions=load_prompt("narrator"),
+            messages=[
+                Message(
+                    role="user",
+                    content=build_turn_prompt(
+                        state,
+                        action,
+                        recent_turn_limit=self.settings.recent_turn_limit,
+                        char_budget=self.settings.context_char_budget,
+                    ),
+                )
+            ],
+            tools=self.registry.schemas(),
+            max_output_tokens=max(512, min(4_000, self.settings.turn_token_limit // 3)),
+        )
+        return run_tool_loop(
+            self.provider,
+            self.registry,
+            request,
+            ctx,
+            max_iterations=self.settings.max_tool_iterations,
+        )

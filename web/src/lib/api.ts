@@ -1,0 +1,228 @@
+export interface CampaignMeta {
+  id: string
+  title: string
+  genre: string
+  tone: string
+  premise: string
+  created_at: string
+  rules_profile: string
+  narrator_model: string
+  turn_count: number
+  world_time_minutes: number
+  content_boundaries: string[]
+}
+
+export interface Attributes {
+  might: number
+  agility: number
+  insight: number
+  presence: number
+}
+
+export interface Track {
+  current: number
+  max: number
+}
+
+export interface Character {
+  id: string
+  name: string
+  concept: string
+  attributes: Attributes
+  skills: Record<string, number>
+  health: Track
+  stress: Track
+  supplies: number
+  currency: number
+  conditions: string[]
+}
+
+export interface InventoryItem {
+  id: string
+  name: string
+  quantity: number
+  tags: string[]
+  description: string
+}
+
+export interface Location {
+  id: string
+  name: string
+  description: string
+  player_known: boolean
+  tags: string[]
+}
+
+export interface Faction {
+  id: string
+  name: string
+  goal: string
+  stance: string
+  resources: Record<string, number>
+  player_known: boolean
+}
+
+export interface Clock {
+  id: string
+  name: string
+  segments: number
+  filled: number
+  trigger: string
+  visibility: string
+}
+
+export interface Fact {
+  id: string
+  text: string
+  tags: string[]
+}
+
+export interface NPC {
+  id: string
+  name: string
+  location: string
+  attitude: string
+  description: string
+}
+
+export interface Roll {
+  label: string
+  dice: number[]
+  modifier: number
+  difficulty: number
+  total: number
+  outcome: string
+}
+
+export interface TurnView {
+  turn: number
+  kind: string
+  action: string
+  narration: string
+  world_time: number
+  rolls: Roll[]
+}
+
+export interface WorldView {
+  situation: string
+  current_location: string
+  location: Location | null
+  locations: Location[]
+  factions: Faction[]
+  clocks: Clock[]
+}
+
+export interface PlayerView {
+  campaign: CampaignMeta & { world_time: string }
+  character: Character
+  inventory: InventoryItem[]
+  world: WorldView
+  npcs: NPC[]
+  facts: Fact[]
+  journal: string
+  turns: TurnView[]
+  narration: string
+}
+
+export interface TurnResult {
+  turn: number
+  narration: string
+  rolls: Roll[]
+  changes: string[]
+  usage: { input_tokens: number; output_tokens: number; estimated_usd: number }
+  world_turn_requested: boolean
+  player: PlayerView
+}
+
+export interface AuditFinding {
+  severity: string
+  summary: string
+  evidence: string
+}
+
+export interface CreateCampaignBody {
+  title?: string
+  prompt?: string
+  genre?: string
+  tone?: string
+}
+
+export interface GmView {
+  gm: {
+    campaign_notes: string
+    character_notes: string
+    world_notes: string
+    world_gm_blocks: string
+    facts: Array<Fact & { visibility: string; revealed_at_turn: number | null }>
+    clocks: Clock[]
+    npcs: Array<{
+      id: string
+      sheet: Record<string, unknown>
+      notes: string
+      gm_blocks: string
+    }>
+    locations: Location[]
+    factions: Faction[]
+    turns: TurnView[]
+    journal_raw: string
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const body = await response.json()
+      if (body?.error?.message) message = body.error.message
+    } catch {
+      // keep the status message
+    }
+    throw new Error(message)
+  }
+  return response.json() as Promise<T>
+}
+
+export function listCampaigns(): Promise<{ campaigns: CampaignMeta[] }> {
+  return request('/campaigns')
+}
+
+export function createCampaign(body: CreateCampaignBody): Promise<{
+  campaign: CampaignMeta
+  player: PlayerView
+}> {
+  return request('/campaigns', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function getPlayer(campaignId: string): Promise<PlayerView> {
+  return request(`/campaigns/${campaignId}/player`)
+}
+
+export function getGm(campaignId: string): Promise<GmView> {
+  return request(`/campaigns/${campaignId}/gm`)
+}
+
+export function playTurn(campaignId: string, action: string): Promise<TurnResult> {
+  return request(`/campaigns/${campaignId}/turns`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  })
+}
+
+export function worldTurn(campaignId: string, reason: string): Promise<{ player: PlayerView }> {
+  return request(`/campaigns/${campaignId}/world-turn`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export function auditCampaign(campaignId: string): Promise<{ findings: AuditFinding[] }> {
+  return request(`/campaigns/${campaignId}/audit`, { method: 'POST' })
+}
+
+export function deleteCampaign(campaignId: string): Promise<{ deleted: string }> {
+  return request(`/campaigns/${campaignId}`, { method: 'DELETE' })
+}

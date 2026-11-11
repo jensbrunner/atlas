@@ -12,10 +12,15 @@ dist/
 
 # Local data and secrets
 data/
+campaigns/
 *.db
 *.db-shm
 *.db-wal
 .env
+
+# Frontend build output and dependencies
+web/node_modules/
+web/dist/
 
 # Editors / OS
 .DS_Store

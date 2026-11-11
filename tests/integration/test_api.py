@@ -1,86 +1,122 @@
 from __future__ import annotations
 
-from atlas.config import Settings
-from atlas.main import create_app
-from atlas.persistence.migrations import upgrade_database
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
+from atlas.agents.types import AgentReply
+from atlas.app import create_app
+from atlas.config import Settings
+from tests.support import fake_provider, tool
 
-def test_health_and_campaign_endpoints(database_url: str) -> None:
-    upgrade_database(database_url)
-    app = create_app(Settings(database_url=database_url, mode="offline_test"))
 
-    with TestClient(app) as client:
+def _client(tmp_path: Path, provider: object) -> TestClient:
+    settings = Settings(data_dir=tmp_path / "campaigns", provider="fake")
+    app = create_app(settings, provider=provider)  # type: ignore[arg-type]
+    return TestClient(app)
+
+
+def test_health_config_and_campaign_roundtrip(tmp_path: Path) -> None:
+    provider = fake_provider(
+        replies=[
+            AgentReply(
+                tool_calls=[
+                    tool("advance_time", "c1", minutes=15),
+                    tool(
+                        "patch_inventory",
+                        "c2",
+                        operation="add",
+                        name="Lantern",
+                        quantity=1,
+                    ),
+                ]
+            ),
+            AgentReply(text="A lantern is pressed into your hands and fifteen minutes vanish."),
+        ]
+    )
+    with _client(tmp_path, provider) as client:
         health = client.get("/healthz")
         assert health.status_code == 200
-        body = health.json()
-        assert body["status"] == "ok"
-        assert body["database"] == "ok"
-        assert body["mode"] == "offline_test"
-        assert body["schema_version"]
+        assert health.json()["provider"] == "fake"
 
-        created = client.post("/api/v1/campaigns", json={})
-        assert created.status_code == 201
-        campaign = created.json()
-        assert campaign["title"] == "The Broken Span"
-        assert campaign["state_version"] == 0
-        campaign_id = campaign["id"]
-        assert campaign_id.startswith("cmp_")
+        config = client.get("/api/config").json()
+        assert config["models"]["narrator"] == "gpt-6-luna"
 
-        listed = client.get("/api/v1/campaigns")
-        assert listed.status_code == 200
-        assert [item["id"] for item in listed.json()["campaigns"]] == [campaign_id]
-
-        fetched = client.get(f"/api/v1/campaigns/{campaign_id}")
-        assert fetched.status_code == 200
-        assert fetched.json()["id"] == campaign_id
-
-        missing = client.get("/api/v1/campaigns/cmp_missing")
-        assert missing.status_code == 404
-        assert missing.json()["error"]["code"] == "not_found"
-
-
-def test_m2_campaign_and_state_expose_public_progress_only(database_url: str) -> None:
-    upgrade_database(database_url)
-    app = create_app(Settings(database_url=database_url, mode="offline_test"))
-
-    with TestClient(app) as client:
         created = client.post(
-            "/api/v1/campaigns",
-            json={"template_slug": "town_advocate"},
+            "/api/campaigns",
+            json={"prompt": "A harbor town with a missing shipment."},
         )
         assert created.status_code == 201
-        campaign = created.json()
-        assert campaign["ending"] is None
-        assert campaign["status"] == "active"
+        campaign = created.json()["campaign"]
         campaign_id = campaign["id"]
+        assert campaign["turn_count"] == 0
 
-        state = client.get(f"/api/v1/campaigns/{campaign_id}/state")
-        assert state.status_code == 200
-        body = state.json()
-        assert body["status"] == "active"
-        assert body["ending"] is None
-        assert {clock["slug"] for clock in body["clocks"]} == {
-            "storm_arrival",
-            "giant_deadline",
-            "town_unrest",
-        }
-        assert all(clock["segments"] > 0 for clock in body["clocks"])
-        knowledge = body["knowledge"]
-        assert knowledge
-        assert all("is_true" not in entry for entry in knowledge)
-        actor = next(item for item in body["entities"] if item["slug"] == "rowan")
-        assert actor["attributes"]["presence"] == 2
+        player = client.get(f"/api/campaigns/{campaign_id}/player")
+        assert player.status_code == 200
+        assert "The council borrowed heavily" not in player.text
+        assert "Mara has already copied" not in player.text
 
-        rendered = state.text
-        assert "is_true" not in rendered
-        assert "caravan_guild_secret" not in rendered
-        assert "M0_GM_ONLY_CARAVAN_STONE_SOURCE" not in rendered
+        gm = client.get(f"/api/campaigns/{campaign_id}/gm")
+        assert "The council borrowed heavily" in gm.text
+
+        played = client.post(
+            f"/api/campaigns/{campaign_id}/turns",
+            json={"action": "ask for a lantern"},
+        )
+        assert played.status_code == 200
+        body = played.json()
+        assert body["turn"] == 1
+        assert body["player"]["campaign"]["world_time_minutes"] == 15
+        assert any(item["name"] == "Lantern" for item in body["player"]["inventory"])
+
+        turns = client.get(f"/api/campaigns/{campaign_id}/turns").json()["turns"]
+        assert [turn["kind"] for turn in turns] == ["opening", "player"]
+
+        listing = client.get("/api/campaigns").json()["campaigns"]
+        assert listing[0]["id"] == campaign_id
+
+        deleted = client.delete(f"/api/campaigns/{campaign_id}")
+        assert deleted.status_code == 200
+        assert client.get(f"/api/campaigns/{campaign_id}/player").status_code == 404
 
 
-def test_health_reports_missing_schema(database_url: str) -> None:
-    app = create_app(Settings(database_url=database_url, mode="offline_test"))
-    with TestClient(app) as client:
-        response = client.get("/healthz")
-        assert response.status_code == 503
-        assert response.json()["status"] == "degraded"
+def test_api_world_turn_and_audit(tmp_path: Path) -> None:
+    provider = fake_provider(
+        replies=[
+            AgentReply(
+                tool_calls=[
+                    tool("patch_clock", "c1", clock="storm_arrival", delta=1),
+                ]
+            ),
+            AgentReply(text="The wind picks up off the water."),
+        ],
+        audit_findings=[{"severity": "low", "summary": "Minor drift.", "evidence": "Turn 0."}],
+    )
+    with _client(tmp_path, provider) as client:
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+
+        world = client.post(
+            f"/api/campaigns/{campaign_id}/world-turn",
+            json={"reason": "dusk"},
+        )
+        assert world.status_code == 200
+        clocks = {item["id"]: item for item in world.json()["player"]["world"]["clocks"]}
+        assert clocks["storm_arrival"]["filled"] == 1
+
+        audit = client.post(f"/api/campaigns/{campaign_id}/audit")
+        assert audit.status_code == 200
+        assert audit.json()["findings"][0]["summary"] == "Minor drift."
+
+
+def test_api_validation_and_not_found(tmp_path: Path) -> None:
+    provider = fake_provider()
+    with _client(tmp_path, provider) as client:
+        assert (
+            client.post("/api/campaigns/cmp_missing/turns", json={"action": "x"}).status_code == 404
+        )
+        assert client.post("/api/campaigns", json={"unknown": "field"}).status_code == 422
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+        empty = client.post(f"/api/campaigns/{campaign_id}/turns", json={"action": ""})
+        assert empty.status_code == 422
