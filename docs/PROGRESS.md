@@ -75,7 +75,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 49 passed |
+| `uv run pytest -q` | 50 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 57 files already formatted |
 | `uv run mypy` | no issues in 49 source files |
@@ -105,7 +105,8 @@ network calls and need no credentials. Coverage includes:
 - auditor findings and empty findings;
 - OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
   structured calls, pricing, and missing-tool errors;
-- CLI settings overrides reaching the served app;
+- CLI settings overrides reaching the served app, and `demo` running without an
+  explicit data directory;
 - HTTP round-trip, 404, 422 validation, deletion.
 
 Manual smoke test (fake provider, built frontend):

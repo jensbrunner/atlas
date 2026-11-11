@@ -63,7 +63,10 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_demo(args: argparse.Namespace) -> int:
-    settings = Settings(data_dir=Path(args.data_dir), provider="fake")
+    overrides: dict[str, object] = {"provider": "fake"}
+    if args.data_dir:
+        overrides["data_dir"] = Path(args.data_dir)
+    settings = Settings(**overrides)  # type: ignore[arg-type]
     service = CampaignService(settings, provider=FakeProvider())
     state, _ = service.create_campaign(
         CampaignRequest(

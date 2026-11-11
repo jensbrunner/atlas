@@ -25,6 +25,14 @@ def test_storage_flags_parse_before_and_after_serve(tmp_path: Path) -> None:
     assert cli._settings(after).provider == "fake"
 
 
+def test_demo_works_without_a_data_dir(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    args = cli.build_parser().parse_args(["demo", "--action", "wait"])
+    assert cli.cmd_demo(args) == 0
+    assert (tmp_path / "campaigns").is_dir()
+    assert any((tmp_path / "campaigns").glob("cmp_*/campaign.md"))
+
+
 def test_serve_uses_the_resolved_settings(monkeypatch: Any, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
