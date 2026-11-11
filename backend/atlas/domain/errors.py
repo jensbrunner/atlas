@@ -43,6 +43,26 @@ class TurnPendingError(DomainError):
         )
 
 
+class TurnFailedError(DomainError):
+    def __init__(self, turn_id: str, error_code: str) -> None:
+        super().__init__(
+            "turn_failed",
+            f"turn {turn_id!r} failed with {error_code!r}",
+            turn_id=turn_id,
+            error_code=error_code,
+        )
+
+
+class UnparsedIntentError(DomainError):
+    def __init__(self, message: str, **details: object) -> None:
+        super().__init__("unparsed_intent", message, **details)
+
+
+class NarrationValidationError(DomainError):
+    def __init__(self, message: str, **details: object) -> None:
+        super().__init__("narrator_invalid", message, **details)
+
+
 class InvalidTurnPlanError(DomainError):
     def __init__(self, message: str, **details: object) -> None:
         super().__init__("invalid_turn_plan", message, **details)

@@ -9,7 +9,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from atlas.domain.errors import InvariantViolation, NotFoundError
-from atlas.domain.events import EventDraft, EventEnvelope, Provenance
+from atlas.domain.events import (
+    EventDraft,
+    EventEnvelope,
+    EventType,
+    Provenance,
+    SceneObservedPayload,
+    parse_event_payload,
+)
 from atlas.domain.ids import new_id
 from atlas.domain.models import (
     Campaign,
@@ -18,9 +25,11 @@ from atlas.domain.models import (
     Entity,
     EntityKind,
     EntityState,
+    Visibility,
 )
 from atlas.domain.projection import (
     ProjectedEntity,
+    ProjectedObservation,
     ProjectionState,
     apply_event,
     canonical_projection,
@@ -32,6 +41,7 @@ from atlas.persistence.orm import (
     EntityRow,
     EntityStateRow,
     EventRow,
+    ObservationRow,
     RollRow,
     TurnRow,
     utcnow,
@@ -140,6 +150,26 @@ def load_projection(session: Session, campaign_id: str) -> ProjectionState:
             created_event_id=entity_row.created_event_id,
             retired_event_id=entity_row.retired_event_id,
         )
+
+    observation_rows = session.scalars(
+        select(ObservationRow)
+        .where(ObservationRow.campaign_id == campaign_id)
+        .order_by(ObservationRow.seq)
+    )
+    for row in observation_rows:
+        projection.observations.append(
+            ProjectedObservation(
+                event_id=row.id,
+                campaign_id=row.campaign_id,
+                sequence=row.seq,
+                turn_id=row.turn_id,
+                world_time=row.occurred_at_world,
+                text=row.text,
+                kind=row.kind,
+                subject_ids=list(row.subject_ids_json),
+                visibility=Visibility(row.visibility),
+            )
+        )
     return projection
 
 
@@ -238,6 +268,8 @@ def commit_event_batch(
         apply_event(projection, envelope)
         envelopes.append(envelope)
         session.add(_event_row(envelope))
+        if envelope.event_type is EventType.SCENE_OBSERVED:
+            session.add(_observation_row(envelope))
         if draft.subject_id is not None and draft.subject_id in projection.entities:
             changed_entity_ids.add(draft.subject_id)
 
@@ -247,6 +279,23 @@ def commit_event_batch(
     _write_entity_rows(session, projection, changed_entity_ids)
     session.flush()
     return envelopes, projection
+
+
+def _observation_row(envelope: EventEnvelope) -> ObservationRow:
+    payload = parse_event_payload(envelope.event_type, envelope.payload)
+    if not isinstance(payload, SceneObservedPayload):  # pragma: no cover - guarded by event type
+        raise InvariantViolation("observation_payload", "unexpected observation payload")
+    return ObservationRow(
+        id=envelope.event_id,
+        campaign_id=envelope.campaign_id,
+        turn_id=envelope.turn_id,
+        seq=envelope.sequence,
+        text=payload.text,
+        kind=payload.kind,
+        subject_ids_json=list(payload.subject_ids),
+        visibility=envelope.visibility.value,
+        occurred_at_world=envelope.world_time,
+    )
 
 
 def _event_row(envelope: EventEnvelope) -> EventRow:
@@ -360,6 +409,59 @@ def next_turn_ordinal(session: Session, campaign_id: str) -> int:
         select(func.max(TurnRow.ordinal)).where(TurnRow.campaign_id == campaign_id)
     )
     return int(current or 0) + 1
+
+
+def list_turns(
+    session: Session,
+    campaign_id: str,
+    *,
+    after_ordinal: int = 0,
+    limit: int = 50,
+) -> list[TurnRow]:
+    return list(
+        session.scalars(
+            select(TurnRow)
+            .where(
+                TurnRow.campaign_id == campaign_id,
+                TurnRow.ordinal > after_ordinal,
+            )
+            .order_by(TurnRow.ordinal)
+            .limit(limit)
+        )
+    )
+
+
+def list_observations(
+    session: Session,
+    campaign_id: str,
+    *,
+    after_sequence: int = 0,
+    limit: int = 100,
+) -> list[ObservationRow]:
+    return list(
+        session.scalars(
+            select(ObservationRow)
+            .where(
+                ObservationRow.campaign_id == campaign_id,
+                ObservationRow.seq > after_sequence,
+            )
+            .order_by(ObservationRow.seq)
+            .limit(limit)
+        )
+    )
+
+
+def observations_for_turn(session: Session, campaign_id: str, turn_id: str) -> list[ObservationRow]:
+    return list(
+        session.scalars(
+            select(ObservationRow)
+            .where(
+                ObservationRow.campaign_id == campaign_id,
+                ObservationRow.turn_id == turn_id,
+            )
+            .order_by(ObservationRow.seq)
+        )
+    )
 
 
 def add_roll(

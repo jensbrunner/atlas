@@ -10,7 +10,7 @@ from typing import Any
 
 from atlas.domain.errors import InvariantViolation
 from atlas.domain.events import EventEnvelope, EventType, parse_event_payload
-from atlas.domain.models import EntityKind
+from atlas.domain.models import EntityKind, Visibility
 
 SCHEMA_VERSION = 1
 
@@ -30,12 +30,26 @@ class ProjectedEntity:
 
 
 @dataclass(slots=True)
+class ProjectedObservation:
+    event_id: str
+    campaign_id: str
+    sequence: int
+    turn_id: str | None
+    world_time: int
+    text: str
+    kind: str
+    subject_ids: list[str] = field(default_factory=list)
+    visibility: Visibility = Visibility.PUBLIC
+
+
+@dataclass(slots=True)
 class ProjectionState:
     campaign_id: str
     current_time: int = 0
     state_version: int = 0
     last_event_seq: int = 0
     entities: dict[str, ProjectedEntity] = field(default_factory=dict)
+    observations: list[ProjectedObservation] = field(default_factory=list)
 
     def clone(self) -> ProjectionState:
         return copy.deepcopy(self)
@@ -100,6 +114,8 @@ def apply_event(projection: ProjectionState, envelope: EventEnvelope) -> None:
         _apply_entity_moved(projection, envelope, payload)
     elif envelope.event_type is EventType.TIME_ADVANCED:
         _apply_time_advanced(projection, envelope, payload)
+    elif envelope.event_type is EventType.SCENE_OBSERVED:
+        _apply_scene_observed(projection, envelope, payload)
     elif envelope.event_type is EventType.TURN_COMMITTED:
         _apply_turn_committed(projection, envelope, payload)
     else:
@@ -206,6 +222,26 @@ def _apply_turn_committed(
     projection.state_version = payload.state_version
 
 
+def _apply_scene_observed(
+    projection: ProjectionState, envelope: EventEnvelope, payload: Any
+) -> None:
+    for subject_id in payload.subject_ids:
+        projection.require_entity(subject_id)
+    projection.observations.append(
+        ProjectedObservation(
+            event_id=envelope.event_id,
+            campaign_id=projection.campaign_id,
+            sequence=envelope.sequence,
+            turn_id=envelope.turn_id,
+            world_time=envelope.world_time,
+            text=payload.text,
+            kind=payload.kind,
+            subject_ids=list(payload.subject_ids),
+            visibility=envelope.visibility,
+        )
+    )
+
+
 def canonical_projection(projection: ProjectionState) -> dict[str, Any]:
     """Stable world-state payload used for replay/checkpoint hashing."""
     return {
@@ -225,6 +261,19 @@ def canonical_projection(projection: ProjectionState) -> dict[str, Any]:
                 "retired_event_id": entity.retired_event_id,
             }
             for entity in sorted(projection.entities.values(), key=lambda item: item.id)
+        ],
+        "observations": [
+            {
+                "event_id": observation.event_id,
+                "sequence": observation.sequence,
+                "turn_id": observation.turn_id,
+                "world_time": observation.world_time,
+                "text": observation.text,
+                "kind": observation.kind,
+                "subject_ids": observation.subject_ids,
+                "visibility": observation.visibility.value,
+            }
+            for observation in sorted(projection.observations, key=lambda item: item.sequence)
         ],
     }
 
@@ -261,4 +310,81 @@ def public_state_view(projection: ProjectionState) -> dict[str, Any]:
         "current_time": projection.current_time,
         "state_version": projection.state_version,
         "entities": visible_entities,
+    }
+
+
+def _gm_only_ids(projection: ProjectionState) -> set[str]:
+    return {entity.id for entity in projection.entities.values() if entity.static.get("gm_only")}
+
+
+def public_observations(
+    projection: ProjectionState,
+    *,
+    after_sequence: int = 0,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Player-visible journal entries, newest last.
+
+    An observation is excluded when it is marked GM-only or when it refers to a
+    GM-only entity. The second check is defense in depth: a visibility mistake
+    must not leak a secret subject ID.
+    """
+    gm_only = _gm_only_ids(projection)
+    visible: list[dict[str, Any]] = []
+    for observation in sorted(projection.observations, key=lambda item: item.sequence):
+        if observation.sequence <= after_sequence:
+            continue
+        if observation.visibility is Visibility.GM_ONLY:
+            continue
+        if gm_only.intersection(observation.subject_ids):
+            continue
+        visible.append(
+            {
+                "event_id": observation.event_id,
+                "sequence": observation.sequence,
+                "turn_id": observation.turn_id,
+                "world_time": observation.world_time,
+                "text": observation.text,
+                "kind": observation.kind,
+                "subject_ids": list(observation.subject_ids),
+                "visibility": observation.visibility.value,
+            }
+        )
+        if len(visible) >= limit:
+            break
+    return visible
+
+
+def player_scene_view(projection: ProjectionState, *, actor_slug: str = "rowan") -> dict[str, Any]:
+    """Focused view of the player character and their current location."""
+    actor = projection.entity_by_slug(actor_slug)
+    if actor is None:
+        return {}
+    location_id = actor.state.get("location_id")
+    location = projection.entities.get(location_id) if isinstance(location_id, str) else None
+
+    def _brief(entity: ProjectedEntity) -> dict[str, Any]:
+        return {
+            "id": entity.id,
+            "kind": entity.kind.value,
+            "slug": entity.slug,
+            "display_name": entity.display_name,
+            "state": copy.deepcopy(entity.state),
+        }
+
+    present = []
+    for entity in sorted(projection.entities.values(), key=lambda item: item.slug):
+        if entity.static.get("gm_only"):
+            continue
+        if entity.id == actor.id:
+            continue
+        if location is not None and (
+            entity.id == location.id or entity.state.get("location_id") == location.id
+        ):
+            present.append(_brief(entity))
+
+    return {
+        "actor": _brief(actor),
+        "location": _brief(location) if location is not None else None,
+        "present": present,
     }

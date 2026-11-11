@@ -114,6 +114,9 @@ class TurnRow(Base):
     snapshot_version: Mapped[int] = mapped_column(Integer, nullable=False)
     narrator_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     mechanics_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    intent_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    outcome_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     rng_seed_hex: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -176,6 +179,31 @@ class RollRow(Base):
     seed_ref: Mapped[str] = mapped_column(String(64), nullable=False)
     result_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     visibility: Mapped[str] = mapped_column(String(32), nullable=False, default="PUBLIC")
+
+
+class ObservationRow(Base):
+    __tablename__ = "observations"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "seq", name="uq_observations_campaign_seq"),
+        Index("ix_observations_campaign_turn", "campaign_id", "turn_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    turn_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("turns.id", ondelete="SET NULL"), nullable=True
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="observation")
+    subject_ids_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    visibility: Mapped[str] = mapped_column(String(32), nullable=False, default="PUBLIC")
+    occurred_at_world: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
 
 
 class CheckpointRow(Base):

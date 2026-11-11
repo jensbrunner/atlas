@@ -40,6 +40,24 @@ class RollRequest(BaseModel):
     visibility: Visibility = Visibility.PUBLIC
 
 
+class RollSummary(BaseModel):
+    """A roll result safe to return to a player.
+
+    The raw seed is deliberately absent. It remains on the stored roll and is
+    only released by an explicit authorized reveal.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    dice: list[int] = Field(min_length=2, max_length=2)
+    modifier: int
+    difficulty: int
+    total: int
+    outcome: ResolutionBand
+    rng_algorithm: str
+
+
 class RollResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -59,6 +77,17 @@ class RollResult(BaseModel):
         if self.outcome is not band_for_total(self.total):
             raise ValueError("roll outcome band does not match total")
         return self
+
+    def public_summary(self) -> RollSummary:
+        return RollSummary(
+            label=self.label,
+            dice=list(self.dice),
+            modifier=self.modifier,
+            difficulty=self.difficulty,
+            total=self.total,
+            outcome=self.outcome,
+            rng_algorithm=self.rng_algorithm,
+        )
 
 
 def band_for_total(total: int) -> ResolutionBand:

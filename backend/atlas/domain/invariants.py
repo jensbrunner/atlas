@@ -261,6 +261,11 @@ def _advance_time(projection: ProjectionState, command: AdvanceTimeCommand) -> E
 
 
 def _bounds(static: dict[str, Any], resource: ResourceName) -> tuple[int, int]:
+    return resource_bounds(static, resource)
+
+
+def resource_bounds(static: dict[str, Any], resource: ResourceName) -> tuple[int, int]:
+    """Resolve configured resource bounds, falling back to core defaults."""
     configured = static.get("resource_bounds", {})
     if isinstance(configured, dict) and resource.value in configured:
         raw = configured[resource.value]

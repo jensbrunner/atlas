@@ -20,6 +20,7 @@ class EventType(StrEnum):
     RESOURCE_CHANGED = "entity.resource_changed"
     ENTITY_MOVED = "entity.moved"
     TIME_ADVANCED = "time.advanced"
+    SCENE_OBSERVED = "scene.observed"
     TURN_COMMITTED = "turn.committed"
 
 
@@ -74,11 +75,20 @@ class TurnCommittedPayload(BaseModel):
     state_version: int = Field(ge=1)
 
 
+class SceneObservedPayload(BaseModel):
+    model_config = _strict()
+
+    text: str = Field(min_length=1, max_length=4000)
+    kind: Literal["arrival", "search", "speech", "observation", "wait"] = "observation"
+    subject_ids: list[str] = Field(default_factory=list)
+
+
 PAYLOAD_MODELS: dict[EventType, type[BaseModel]] = {
     EventType.ENTITY_CREATED: EntityCreatedPayload,
     EventType.RESOURCE_CHANGED: ResourceChangedPayload,
     EventType.ENTITY_MOVED: EntityMovedPayload,
     EventType.TIME_ADVANCED: TimeAdvancedPayload,
+    EventType.SCENE_OBSERVED: SceneObservedPayload,
     EventType.TURN_COMMITTED: TurnCommittedPayload,
 }
 
