@@ -318,7 +318,8 @@ class CampaignSeed(DraftModel):
         # list. Assign stable ids, then resolve ids or exact fact text to ids.
         used: set[str] = set()
         for fact in self.facts:
-            base = fact.id.strip() if fact.id else f"fact_{slugify(fact.text)[:48]}"
+            raw_id = fact.id.strip() if fact.id else ""
+            base = raw_id or f"fact_{slugify(fact.text)[:48]}"
             candidate = base
             suffix = 2
             while candidate in used:

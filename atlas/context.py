@@ -70,7 +70,7 @@ def _npc_sheet(state: CampaignState, npc_id: str) -> str:
     location = npc.location or "unknown"
     known = ", ".join(npc.knows) or "none"
     goals = "; ".join(npc.goals) or "none"
-    plans = "; ".join(npc.plans) or "none"
+    plans = "; ".join(npc.plans[-3:]) or "none"
     lines = [
         f"### {npc.name} ({npc_id})",
         f"Location: {location}; attitude: {npc.attitude}; player-known: {npc.player_known}",
@@ -154,6 +154,19 @@ def recent_turns(state: CampaignState, limit: int) -> str:
     return "\n\n".join(blocks)
 
 
+def _fit_prompt(head: str, tail: str, char_budget: int) -> str:
+    """Trim context while always preserving the action and instructions."""
+
+    tail = tail.strip()
+    if len(tail) >= char_budget:
+        return tail[-char_budget:]
+    head = head.strip()
+    available = char_budget - len(tail) - 2
+    if len(head) > available:
+        head = head[: max(0, available - 2)].rstrip() + "\n…"
+    return f"{head}\n\n{tail}" if head else tail
+
+
 def build_turn_prompt(
     state: CampaignState,
     action: str,
@@ -165,92 +178,90 @@ def build_turn_prompt(
         "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs))
         or "No NPCs are defined yet."
     )
-    sections = [
-        "# Campaign",
-        campaign_section(state),
-        "",
-        "# Player character",
-        character_sheet(state),
-        "",
-        "# World",
-        world_section(state),
-        "",
-        "# NPCs (GM view)",
-        npcs,
-        "",
-        "# Recent turns",
-        recent_turns(state, recent_turn_limit) or "This is the first player turn.",
-        "",
-        "# Player action",
-        action.strip(),
-        "",
-        (
-            "Narrate the outcome of this action. Use tools for every mechanical or "
-            "persistent change. Do not decide the player character's voluntary speech, "
-            "thoughts, or additional actions. Do not reveal secret facts. End with "
-            "player-facing narration only."
-        ),
-    ]
-    prompt = "\n".join(sections)
-    if len(prompt) > char_budget:
-        prompt = prompt[: char_budget - 1].rstrip() + "…"
-    return prompt
+    head = "\n".join(
+        [
+            "# Campaign",
+            campaign_section(state),
+            "",
+            "# Player character",
+            character_sheet(state),
+            "",
+            "# World",
+            world_section(state),
+            "",
+            "# NPCs (GM view)",
+            npcs,
+            "",
+            "# Recent turns",
+            recent_turns(state, recent_turn_limit) or "This is the first player turn.",
+        ]
+    )
+    tail = "\n".join(
+        [
+            "# Player action",
+            action.strip(),
+            "",
+            (
+                "Narrate the outcome of this action. Use tools for every mechanical or "
+                "persistent change. Do not decide the player character's voluntary speech, "
+                "thoughts, or additional actions. Do not reveal secret facts. End with "
+                "player-facing narration only."
+            ),
+        ]
+    )
+    return _fit_prompt(head, tail, char_budget)
 
 
 def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 32_000) -> str:
-    sections = [
-        "# World evolution request",
-        f"Reason: {reason or 'time has passed and the world should move on its own.'}",
-        "",
-        "# Campaign",
-        campaign_section(state),
-        "",
-        "# World",
-        world_section(state),
-        "",
-        "# NPCs (GM view)",
-        "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
-        "",
-        "# Recent turns",
-        recent_turns(state, 4) or "No turns yet.",
-        "",
-        (
-            "Update the offscreen world: advance clocks when pressure has built, let "
-            "factions and NPCs pursue their goals, and record any new canonical facts. "
-            "Use tools only. Do not write player-facing prose. Finish with a brief "
-            "GM-facing summary of what changed offscreen."
-        ),
-    ]
-    prompt = "\n".join(sections)
-    if len(prompt) > char_budget:
-        prompt = prompt[: char_budget - 1].rstrip() + "…"
-    return prompt
+    head = "\n".join(
+        [
+            "# World evolution request",
+            f"Reason: {reason or 'time has passed and the world should move on its own.'}",
+            "",
+            "# Campaign",
+            campaign_section(state),
+            "",
+            "# World",
+            world_section(state),
+            "",
+            "# NPCs (GM view)",
+            "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
+            "",
+            "# Recent turns",
+            recent_turns(state, 4) or "No turns yet.",
+        ]
+    )
+    tail = (
+        "Update the offscreen world: advance clocks when pressure has built, let "
+        "factions and NPCs pursue their goals, and record any new canonical facts. "
+        "Use tools only. Do not write player-facing prose. Finish with a brief "
+        "GM-facing summary of what changed offscreen."
+    )
+    return _fit_prompt(head, tail, char_budget)
 
 
 def build_audit_prompt(state: CampaignState, *, char_budget: int = 40_000) -> str:
-    sections = [
-        "# Continuity audit",
-        campaign_section(state),
-        "",
-        "# Player character",
-        character_sheet(state),
-        "",
-        "# World canon",
-        world_section(state),
-        "",
-        "# NPCs",
-        "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
-        "",
-        "# Recent turns",
-        recent_turns(state, 12) or "No turns yet.",
-        "",
-        (
-            "Find contradictions with established canon, impossible state, or facts that "
-            "were revealed before they should have been. Report only concrete problems "
-            "with evidence. Return an empty findings list if nothing is wrong."
-        ),
-    ]
-    prompt = "\n".join(sections)
-    if len(prompt) > char_budget:
-        prompt = prompt[: char_budget - 1].rstrip() + "…"
-    return prompt
+    head = "\n".join(
+        [
+            "# Continuity audit",
+            campaign_section(state),
+            "",
+            "# Player character",
+            character_sheet(state),
+            "",
+            "# World canon",
+            world_section(state),
+            "",
+            "# NPCs",
+            "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
+            "",
+            "# Recent turns",
+            recent_turns(state, 12) or "No turns yet.",
+        ]
+    )
+    tail = (
+        "Find contradictions with established canon, impossible state, or facts that "
+        "were revealed before they should have been. Report only concrete problems "
+        "with evidence. Return an empty findings list if nothing is wrong."
+    )
+    return _fit_prompt(head, tail, char_budget)

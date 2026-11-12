@@ -4,6 +4,16 @@
   let { view, pending = false }: { view: PlayerView; pending?: boolean } = $props()
 
   let scroller = $state<HTMLDivElement | null>(null)
+  let seconds = $state(0)
+
+  $effect(() => {
+    if (!pending) return
+    seconds = 0
+    const timer = setInterval(() => {
+      seconds += 1
+    }, 1000)
+    return () => clearInterval(timer)
+  })
 
   $effect(() => {
     // Re-scroll when the transcript or pending state changes.
@@ -44,6 +54,7 @@
     <div class="thinking">
       <span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span>The world is considering its answer…</span>
+      {#if seconds >= 5}<span class="elapsed">{seconds}s</span>{/if}
     </div>
   {/if}
 </div>
@@ -143,6 +154,12 @@
   .dot:nth-child(3) {
     animation-delay: 0.3s;
     margin-right: 0.4rem;
+  }
+
+  .elapsed {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--faint);
   }
 
   @keyframes pulse {
