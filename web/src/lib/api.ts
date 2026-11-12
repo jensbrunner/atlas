@@ -144,6 +144,7 @@ export interface UsageTotals {
   estimated_usd: number
   turns: number
   billable_turns: number
+  priced_turns: number
   average_tokens_per_turn: number
 }
 
@@ -156,7 +157,19 @@ export interface UsageTurn {
   output_tokens: number
   total_tokens: number
   estimated_usd: number
+  priced: boolean
+  pricing_source: string
   world_time: number
+}
+
+export interface ModelPrice {
+  model: string
+  input_per_million: number
+  output_per_million: number
+  provider: string
+  source: string
+  note: string
+  known: boolean
 }
 
 export interface UsageTracking {
@@ -171,6 +184,8 @@ export interface UsageTracking {
   input_usd_per_million: number
   output_usd_per_million: number
   session_usd_limit: number
+  pricing_updated: string
+  pricing_sources: Record<string, string>
 }
 
 export interface CampaignUsage {
@@ -182,6 +197,7 @@ export interface CampaignUsage {
   }
   totals: UsageTotals
   models: string[]
+  model_prices: ModelPrice[]
   turns: UsageTurn[]
   tracking: UsageTracking
 }

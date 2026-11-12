@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from atlas.pricing import price_for
 from atlas.state.markdown import extract_gm_block_text, strip_gm_blocks
 from atlas.state.schemas import CampaignState, TurnKind
 from atlas.state.store import format_world_time, time_of_day
@@ -18,20 +19,52 @@ def _turn_view(turn: Any) -> dict[str, Any]:
     }
 
 
-def usage_view(state: CampaignState) -> dict[str, Any]:
+def usage_view(
+    state: CampaignState,
+    *,
+    fallback_input: float = 0.0,
+    fallback_output: float = 0.0,
+) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     input_tokens = output_tokens = 0
     estimated_usd = 0.0
     models: set[str] = set()
+    model_prices: dict[str, dict[str, Any]] = {}
 
     for turn in state.turns:
         usage = turn.usage
         total = usage.input_tokens + usage.output_tokens
         input_tokens += usage.input_tokens
         output_tokens += usage.output_tokens
-        estimated_usd += usage.estimated_usd
         if turn.model:
             models.add(turn.model)
+
+        quote = price_for(
+            turn.model,
+            fallback_input=fallback_input,
+            fallback_output=fallback_output,
+        )
+        if quote is not None:
+            cost = round(
+                usage.input_tokens / 1_000_000 * quote.input_per_million
+                + usage.output_tokens / 1_000_000 * quote.output_per_million,
+                6,
+            )
+            pricing_source = "built-in" if quote.known else "custom fallback"
+            model_prices[quote.model] = {
+                "model": quote.model,
+                "input_per_million": quote.input_per_million,
+                "output_per_million": quote.output_per_million,
+                "provider": quote.provider,
+                "source": quote.source,
+                "note": quote.note,
+                "known": quote.known,
+            }
+        else:
+            cost = usage.estimated_usd if usage.estimated_usd > 0 else 0.0
+            pricing_source = "stored" if cost > 0 else "unpriced"
+
+        estimated_usd += cost
         rows.append(
             {
                 "turn": turn.turn,
@@ -41,12 +74,15 @@ def usage_view(state: CampaignState) -> dict[str, Any]:
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,
                 "total_tokens": total,
-                "estimated_usd": usage.estimated_usd,
+                "estimated_usd": round(cost, 6),
+                "priced": quote is not None or usage.estimated_usd > 0,
+                "pricing_source": pricing_source,
                 "world_time": turn.world_time_after,
             }
         )
 
     billable = [row for row in rows if row["total_tokens"] > 0]
+    priced = [row for row in billable if row["priced"]]
     return {
         "campaign": {
             "id": state.meta.id,
@@ -61,11 +97,13 @@ def usage_view(state: CampaignState) -> dict[str, Any]:
             "estimated_usd": round(estimated_usd, 6),
             "turns": len(rows),
             "billable_turns": len(billable),
+            "priced_turns": len(priced),
             "average_tokens_per_turn": (
                 (input_tokens + output_tokens) // len(billable) if billable else 0
             ),
         },
         "models": sorted(models),
+        "model_prices": sorted(model_prices.values(), key=lambda item: item["model"]),
         "turns": rows,
     }
 

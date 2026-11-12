@@ -190,6 +190,15 @@ entities are in the packet versus canon, and `lookup_canon` searches the full
 state on demand. This keeps normal context small without making distant canon
 inaccessible. The tool is model-facing and costs tokens only when called.
 
+## ADR-026 — Built-in model price table
+
+Accepted. `atlas/pricing.py` carries standard short-context list prices for the
+major OpenAI, Anthropic, Google, xAI, DeepSeek, Mistral, and Cohere models,
+checked 2026-11-12. Known model IDs (including dated suffixes) use the table;
+unknown IDs use the configured fallback rates. Promotional, long-context,
+peak/off-peak, cache, and regional variations are noted but not modeled. The
+Usage modal shows the source date and links to provider pricing pages.
+
 ## Deferred decisions
 
 - Token-level narration streaming.
@@ -197,5 +206,4 @@ inaccessible. The tool is model-facing and costs tokens only when called.
 - Automatic world-turn thresholds based on world time.
 - Semantic/vector retrieval and a persisted index for very large worlds.
 - Semantic secret-leak detection and model-side redaction.
-- Bundled per-model price presets for accurate USD accounting.
 - Multi-user or remote hosting.

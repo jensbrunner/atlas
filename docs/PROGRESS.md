@@ -102,10 +102,10 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 78 passed |
+| `uv run pytest -q` | 84 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 70 files already formatted |
-| `uv run mypy` | no issues in 59 source files |
+| `uv run ruff format --check .` | 72 files already formatted |
+| `uv run mypy` | no issues in 61 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
@@ -152,7 +152,9 @@ network calls and need no credentials. Coverage includes:
   explicit data directory;
 - HTTP round-trip, 404, 422 validation, deletion;
 - streamed turn events ending in the committed turn result;
-- token-usage aggregation by turn and model, plus the usage endpoint.
+- token-usage aggregation by turn and model, plus the usage endpoint;
+- built-in list prices for major models, dated-ID/alias resolution, known-model
+  estimates, and custom fallback pricing for unknown models.
 
 Manual smoke test (fake provider, built frontend):
 
@@ -189,6 +191,8 @@ Live OpenAI smoke test (GPT-6 Luna):
   result with a successful roll and new discovery.
 - The usage endpoint reported 185,469 input / 15,117 output tokens across eight
   recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
+- Usage costs now come from the built-in price table: the live 15,724 / 1,367
+  turn was estimated at **$0.002256** on GPT-6 Luna.
 - Synthetic retrieval stress test: 1,002 NPCs and 5,003 facts produced a
   3,067-character packet with 2 NPCs and 3 facts in ~15 ms, including the relevant
   entity and excluding unrelated noise. Loading a 502-NPC / 2,003-fact campaign
@@ -213,19 +217,18 @@ Live OpenAI smoke test (GPT-6 Luna):
 - Secret-leak detection is verbatim matching against GM fact text, GM prose
   blocks, and hidden names, followed by one repair pass. It is a backstop, not a
   semantic guarantee.
-- USD estimates use an optional static price table
-  (`ATLAS_INPUT_USD_PER_MILLION` / `ATLAS_OUTPUT_USD_PER_MILLION`). No per-model
-  price presets are bundled, so the session cap is inert until rates are set,
-  and session spend resets when the server restarts.
+- Cost estimates use a built-in list-price table checked 2026-11-12. Long-context,
+  promotional, peak/off-peak, cache, and regional rates are noted but not modeled;
+  the standard short-context rate is used. Unknown model IDs use fallback rates.
+  Session spend resets when the server restarts.
 - Single-user localhost only. No auth, no remote hosting.
 
 ## Next steps
 
-1. Add per-model price presets so `ATLAS_SESSION_USD_LIMIT` is meaningful without
-   hand-entering rates.
-2. Add token-level narration streaming while preserving commit-time atomicity.
-3. Add campaign export/import.
-4. Replace verbatim leak matching with a model-side redaction pass or embedding
+1. Add token-level narration streaming while preserving commit-time atomicity.
+2. Add campaign export/import.
+3. Replace verbatim leak matching with a model-side redaction pass or embedding
    similarity, then keep the verbatim check as a fast path.
-5. Add a persisted or vector index and a rolling recap for very large worlds;
+4. Add a persisted or vector index and a rolling recap for very large worlds;
    current retrieval rebuilds in memory from markdown each turn.
+5. Add an automated price-table refresh check against provider pricing pages.

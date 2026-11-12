@@ -28,6 +28,10 @@
     return value > 0 ? `$${value.toFixed(4)}` : '—'
   }
 
+  function rate(value: number): string {
+    return `$${Number(value.toFixed(4))}/M`
+  }
+
   function kind(kind: string): string {
     if (kind === 'opening') return 'Opening'
     if (kind === 'world') return 'World'
@@ -48,6 +52,9 @@
           {usage.campaign.world_time} · {usage.totals.turns} recorded turns
           {#if usage.totals.billable_turns !== usage.totals.turns}
             · {usage.totals.billable_turns} billable
+          {/if}
+          {#if usage.totals.priced_turns !== usage.totals.billable_turns}
+            · {usage.totals.priced_turns} priced
           {/if}
         </p>
       </div>
@@ -98,20 +105,45 @@
       <div class="row">
         <span class="label">Pricing</span>
         <span>
-          {#if usage.tracking.input_usd_per_million > 0 || usage.tracking.output_usd_per_million > 0}
-            ${usage.tracking.input_usd_per_million}/M input ·
-            ${usage.tracking.output_usd_per_million}/M output
-          {:else}
-            Cost estimates are off. Set `ATLAS_INPUT_USD_PER_MILLION` and
-            `ATLAS_OUTPUT_USD_PER_MILLION` in `.env`.
-          {/if}
+          Built-in list prices checked {usage.tracking.pricing_updated}. Unknown
+          model IDs fall back to {rate(usage.tracking.input_usd_per_million)} input ·
+          {rate(usage.tracking.output_usd_per_million)} output.
         </span>
       </div>
     </section>
 
+    {#if usage.model_prices.length}
+      <section class="prices">
+        <h4>Models used</h4>
+        {#each usage.model_prices as price (price.model)}
+          <div class="price">
+            <strong>{price.model}</strong>
+            <span class="faint"> · {price.provider}</span>
+            <span class="muted">
+              · {rate(price.input_per_million)} input ·
+              {rate(price.output_per_million)} output
+            </span>
+            {#if !price.known}
+              <span class="badge fallback">fallback</span>
+            {/if}
+            {#if price.note}
+              <div class="price-note">{price.note}</div>
+            {/if}
+          </div>
+        {/each}
+        <div class="sources">
+          Sources:
+          {#each Object.entries(usage.tracking.pricing_sources) as [provider, url]}
+            <a href={url} target="_blank" rel="noreferrer">{provider}</a>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
     <p class="note">
       Input counts the GM packet and every tool round-trip. Output counts tool calls
-      and narration. Totals are read from each turn’s markdown frontmatter.
+      and narration. Costs use the built-in list-price table for known models;
+      unknown model IDs use the configured fallback rates.
     </p>
 
     {#if turns.length}
@@ -137,7 +169,7 @@
                 <td class="num">{fmt(turn.input_tokens)}</td>
                 <td class="num">{fmt(turn.output_tokens)}</td>
                 <td class="num strong">{fmt(turn.total_tokens)}</td>
-                <td class="num">{money(turn.estimated_usd)}</td>
+                <td class="num">{turn.priced ? money(turn.estimated_usd) : '—'}</td>
               </tr>
             {/each}
           </tbody>
@@ -241,6 +273,51 @@
     color: var(--muted);
     line-height: 1.55;
     margin: 0 0 1rem;
+  }
+
+  .prices {
+    margin: 0 0 1rem;
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .prices h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .price {
+    font-size: 0.82rem;
+    padding: 0.2rem 0;
+  }
+
+  .price-note {
+    color: var(--faint);
+    font-size: 0.76rem;
+    margin-left: 0.2rem;
+  }
+
+  .badge.fallback {
+    color: var(--danger);
+    border-color: rgba(212, 114, 94, 0.45);
+    margin-left: 0.3rem;
+    font-size: 0.6rem;
+  }
+
+  .sources {
+    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .sources a {
+    color: var(--muted);
   }
 
   .table-wrap {

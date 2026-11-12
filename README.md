@@ -162,10 +162,16 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
 Context is selected from the GM packet with a local BM25 index plus scene boosts
 (present NPCs, current location, NPC knowledge, active clocks). The narrator can
 call `lookup_canon` for omitted material. Recent turns and total prompt
-characters are budgeted. Every turn records token usage. Set
-`ATLAS_INPUT_USD_PER_MILLION` and `ATLAS_OUTPUT_USD_PER_MILLION` to price tokens;
-`ATLAS_SESSION_USD_LIMIT` then stops a session that exceeds the configured
-estimate. With the default zero rates, cost estimates stay at zero.
+characters are budgeted. Every turn records token usage.
+
+Cost estimates use a built-in list-price table for major OpenAI, Anthropic,
+Google, xAI, DeepSeek, Mistral, and Cohere models, checked 2026-11-12. Model IDs
+are matched by exact name or dated prefix. Unknown/custom model IDs use the
+fallback rates in `ATLAS_INPUT_USD_PER_MILLION` and
+`ATLAS_OUTPUT_USD_PER_MILLION`. `ATLAS_SESSION_USD_LIMIT` stops a session that
+exceeds the estimate. Long-context, promotional, peak/off-peak, and other special
+rates are noted in the table; the standard short-context rate is used for the
+estimate.
 
 ## HTTP API
 

@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from atlas.agents.campaign import CampaignRequest
 from atlas.api.schemas import CreateCampaignBody, PlayTurnBody, WorldTurnBody
 from atlas.game import CampaignService
+from atlas.pricing import PRICING_SOURCES, PRICING_UPDATED
 from atlas.state.render import player_view, usage_view
 from atlas.state.schemas import CampaignMeta
 
@@ -78,7 +79,11 @@ def get_campaign(request: Request, campaign_id: str) -> dict[str, Any]:
 @router.get("/campaigns/{campaign_id}/usage")
 def get_usage(request: Request, campaign_id: str) -> dict[str, Any]:
     settings = request.app.state.settings
-    view = usage_view(service_from(request).get(campaign_id))
+    view = usage_view(
+        service_from(request).get(campaign_id),
+        fallback_input=settings.input_usd_per_million,
+        fallback_output=settings.output_usd_per_million,
+    )
     view["tracking"] = {
         "provider": settings.provider,
         "live": settings.live,
@@ -91,6 +96,8 @@ def get_usage(request: Request, campaign_id: str) -> dict[str, Any]:
         "input_usd_per_million": settings.input_usd_per_million,
         "output_usd_per_million": settings.output_usd_per_million,
         "session_usd_limit": settings.session_usd_limit,
+        "pricing_updated": PRICING_UPDATED,
+        "pricing_sources": PRICING_SOURCES,
     }
     return view
 

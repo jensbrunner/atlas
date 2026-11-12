@@ -32,6 +32,7 @@ atlas/
   game.py              CampaignService: generation, turns, world turns, audit
   context.py           retrieval-selected GM packet assembly
   retrieval.py         BM25 index and relevance selection
+  pricing.py           built-in model list prices and cost estimates
   errors.py            typed harness errors
   ids.py               ids and slugs
 
@@ -191,10 +192,14 @@ known entity references, monotonic world time, valid fact/NPC references.
   client uses `ATLAS_REQUEST_TIMEOUT_SECONDS` and no hidden SDK retries.
 - Startup time is stored as `world_time_minutes`; the generator chooses a
   plausible `start_minute` for the opening.
-- `ATLAS_SESSION_USD_LIMIT` is checked against accumulated estimated cost. Set
-  `ATLAS_INPUT_USD_PER_MILLION` and `ATLAS_OUTPUT_USD_PER_MILLION` to price
-  tokens. With the default zero rates the estimate stays at zero, so the cap
-  does not trigger; the fake provider always costs nothing.
+- `ATLAS_SESSION_USD_LIMIT` is checked against accumulated estimated cost.
+  `atlas/pricing.py` holds list prices for major models, checked 2026-11-12.
+  Known IDs use the table; unknown IDs use the fallback
+  `ATLAS_INPUT_USD_PER_MILLION` / `ATLAS_OUTPUT_USD_PER_MILLION` rates. Special
+  long-context or promotional rates are noted but not modeled.
+- Cost is recomputed for historical turns from the table, so old zero-cost turns
+  become priced after the table is added. Turn files still store the estimate
+  captured at the time.
 
 ## Failure semantics
 

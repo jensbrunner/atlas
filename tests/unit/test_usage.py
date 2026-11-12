@@ -33,10 +33,13 @@ def test_usage_view_sums_turns_and_models(tmp_path: Path) -> None:
     assert view["totals"]["input_tokens"] == 300
     assert view["totals"]["output_tokens"] == 150
     assert view["totals"]["total_tokens"] == 450
-    assert view["totals"]["estimated_usd"] == 0.03
+    assert view["totals"]["estimated_usd"] == 0.01007
     assert view["totals"]["turns"] == 2
     assert view["totals"]["billable_turns"] == 2
+    assert view["totals"]["priced_turns"] == 2
     assert view["totals"]["average_tokens_per_turn"] == 225
     assert view["models"] == ["fake", "gpt-6-luna"]
+    assert view["model_prices"][0]["model"] == "gpt-6-luna"
     assert len(view["turns"]) == 2
     assert view["turns"][1]["model"] == "gpt-6-luna"
+    assert view["turns"][1]["priced"] is True

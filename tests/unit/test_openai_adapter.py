@@ -185,7 +185,7 @@ def test_provider_factory_requires_a_key_only_for_openai() -> None:
     assert isinstance(build_provider(provider="fake", api_key=None), FakeProvider)
 
 
-def test_usage_is_priced_when_rates_are_configured() -> None:
+def test_usage_uses_builtin_price_for_known_models() -> None:
     response = SimpleNamespace(
         output_text="Done.",
         output=[],
@@ -203,4 +203,25 @@ def test_usage_is_priced_when_rates_are_configured() -> None:
 
     assert reply.usage.input_tokens == 1_000_000
     assert reply.usage.output_tokens == 500_000
+    assert reply.usage.estimated_usd == 0.35
+
+
+def test_usage_uses_fallback_rates_for_unknown_models() -> None:
+    response = SimpleNamespace(
+        output_text="Done.",
+        output=[],
+        usage=SimpleNamespace(input_tokens=1_000_000, output_tokens=500_000),
+    )
+    client = StubClient(response)
+    provider = OpenAIProvider(
+        "sk-test",
+        client=client,
+        input_usd_per_million=2.0,
+        output_usd_per_million=4.0,
+    )
+    request = _request()
+    request.model = "custom-house-model"
+
+    reply = provider.complete(request)
+
     assert reply.usage.estimated_usd == 4.0

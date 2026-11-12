@@ -12,6 +12,7 @@ from atlas.agents.types import (
     StructuredRequest,
     ToolCall,
 )
+from atlas.pricing import estimate_cost
 from atlas.state.schemas import Usage
 
 
@@ -76,6 +77,7 @@ class OpenAIProvider:
             tool_calls=calls,
             usage=_usage(
                 response,
+                request.model,
                 input_rate=self._input_rate,
                 output_rate=self._output_rate,
             ),
@@ -116,6 +118,7 @@ class OpenAIProvider:
                 raise AgentError("model returned a non-object structured payload")
             return payload, _usage(
                 response,
+                request.model,
                 input_rate=self._input_rate,
                 output_rate=self._output_rate,
             )
@@ -170,6 +173,7 @@ def _response_text(response: Any) -> str:
 
 def _usage(
     response: Any,
+    model: str,
     *,
     input_rate: float = 0.0,
     output_rate: float = 0.0,
@@ -179,11 +183,17 @@ def _usage(
         return Usage()
     input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
     output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-    estimated = input_tokens / 1_000_000 * input_rate + output_tokens / 1_000_000 * output_rate
+    estimated, _ = estimate_cost(
+        model,
+        input_tokens,
+        output_tokens,
+        fallback_input=input_rate,
+        fallback_output=output_rate,
+    )
     return Usage(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        estimated_usd=round(estimated, 6),
+        estimated_usd=estimated,
     )
 
 
