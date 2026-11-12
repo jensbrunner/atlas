@@ -154,7 +154,7 @@
         <h1>{view?.campaign.title ?? 'Campaign'}</h1>
         <div class="meta muted">
           {#if view}
-            {view.campaign.world_time} · turn {view.campaign.turn_count}
+            {view.campaign.time_of_day} · {view.campaign.world_time} · turn {view.campaign.turn_count}
             {#if view.world.location}· {view.world.location.name}{/if}
           {/if}
         </div>

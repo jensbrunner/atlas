@@ -5,12 +5,14 @@
   }: { pending: boolean; onSend: (action: string) => Promise<void> } = $props()
 
   let action = $state('')
+  let input = $state<HTMLTextAreaElement | null>(null)
 
   async function submit() {
     const text = action.trim()
     if (!text || pending) return
     action = ''
     await onSend(text)
+    input?.focus()
   }
 
   function keydown(event: KeyboardEvent) {
@@ -23,6 +25,7 @@
 
 <div class="composer">
   <textarea
+    bind:this={input}
     bind:value={action}
     onkeydown={keydown}
     rows="2"

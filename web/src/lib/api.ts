@@ -116,7 +116,7 @@ export interface WorldView {
 }
 
 export interface PlayerView {
-  campaign: CampaignMeta & { world_time: string }
+  campaign: CampaignMeta & { world_time: string; time_of_day: string }
   character: Character
   inventory: InventoryItem[]
   world: WorldView

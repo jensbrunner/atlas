@@ -88,7 +88,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 68 passed |
+| `uv run pytest -q` | 69 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 65 files already formatted |
 | `uv run mypy` | no issues in 55 source files |
@@ -102,8 +102,8 @@ network calls and need no credentials. Coverage includes:
 - dice outcomes and modifier math;
 - tool bounds: inventory add/remove, health clamps, clock clamps, unknown tools,
   bad argument types, fact record/reveal;
-- campaign creation, generated start time, file layout, player/GM separation,
-  restart reload;
+- campaign creation, generated start time and time-of-day label, file layout,
+  player/GM separation, restart reload;
 - seed validation: duplicate and slug-colliding ids, slug-normalized location
   references, fact-id assignment, prose knowledge resolution, unknown draft fields;
 - store path-traversal rejection and partial directory handling;

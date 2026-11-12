@@ -356,6 +356,19 @@ def format_world_time(minutes: int) -> str:
     return f"Day {day}, {hour:02d}:{minute:02d}"
 
 
+def time_of_day(minutes: int) -> str:
+    hour = (minutes % (24 * 60)) // 60
+    if 5 <= hour < 8:
+        return "Dawn"
+    if 8 <= hour < 12:
+        return "Morning"
+    if 12 <= hour < 17:
+        return "Afternoon"
+    if 17 <= hour < 21:
+        return "Evening"
+    return "Night"
+
+
 def _journal_entry(record: TurnRecord) -> str:
     title = "Opening" if record.kind == "opening" else f"Turn {record.turn}"
     lines = [

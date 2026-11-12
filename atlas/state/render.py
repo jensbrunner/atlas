@@ -4,7 +4,7 @@ from typing import Any
 
 from atlas.state.markdown import extract_gm_block_text, strip_gm_blocks
 from atlas.state.schemas import CampaignState, TurnKind
-from atlas.state.store import format_world_time
+from atlas.state.store import format_world_time, time_of_day
 
 
 def _turn_view(turn: Any) -> dict[str, Any]:
@@ -75,6 +75,7 @@ def player_view(state: CampaignState) -> dict[str, Any]:
             "turn_count": state.meta.turn_count,
             "world_time_minutes": state.meta.world_time_minutes,
             "world_time": format_world_time(state.meta.world_time_minutes),
+            "time_of_day": time_of_day(state.meta.world_time_minutes),
         },
         "character": character,
         "inventory": inventory,

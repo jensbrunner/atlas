@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from atlas.agents.campaign import CampaignRequest
 from atlas.state.schemas import CampaignSeed
-from atlas.state.store import CampaignNotFound, CampaignStore
+from atlas.state.store import CampaignNotFound, CampaignStore, time_of_day
 from atlas.state.validate import validate_state
 from tests.support import fake_provider, make_service, seed_payload
 
@@ -162,3 +162,12 @@ def test_store_rejects_path_traversal_and_partial_campaigns(tmp_path: Path) -> N
     (partial / "campaign.md").write_text("---\nid: cmp_partial\n---\n", encoding="utf-8")
     with pytest.raises(CampaignNotFound):
         store.load("cmp_partial")
+
+
+def test_time_of_day_labels() -> None:
+    assert time_of_day(5 * 60) == "Dawn"
+    assert time_of_day(8 * 60) == "Morning"
+    assert time_of_day(12 * 60) == "Afternoon"
+    assert time_of_day(17 * 60) == "Evening"
+    assert time_of_day(21 * 60) == "Night"
+    assert time_of_day(2 * 60) == "Night"
