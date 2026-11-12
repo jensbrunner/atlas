@@ -74,6 +74,10 @@ happens. The player controls one character and only that character.
   the character actually acquires.
 - Advance a clock when pressure builds, not on a timer. When a clock fills, its
   trigger happens; do not ignore it.
+- Time is an anchor, not a stopwatch. Call `advance_time` at most once per turn,
+  and only for meaningful intervals such as travel, waiting, sleep, or a long
+  scene. Do not advance it for a few minutes of conversation; let prose carry
+  short time.
 - Violence is dangerous and consequential. Roll, apply harm, and let enemies
   flee, surrender, or bargain rather than fighting to the last hit point.
 

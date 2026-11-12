@@ -117,6 +117,9 @@ PRICES: dict[str, ModelPrice] = {
 ALIASES = {
     "deepseek-v4.1-flash": "deepseek-flash",
     "deepseek-v4-pro-0813": "deepseek-v4-pro",
+    "claude-sonnet-5.5": "claude-sonnet-5-5",
+    "claude-opus-5.5": "claude-opus-5-5",
+    "claude-haiku-5.5": "claude-haiku-5-5",
     "grok-4.20-0309": "grok-4.20",
     "grok-4.20-0309-reasoning": "grok-4.20",
     "grok-4.20-0309-non-reasoning": "grok-4.20",

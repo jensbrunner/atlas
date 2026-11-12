@@ -141,7 +141,8 @@ Deliberately small:
   loss is concrete; at 0 the character is incapacitated rather than arbitrarily
   killed. Stress represents fear, guilt, and exhaustion.
 - Named clocks with segments and triggers.
-- World time in minutes, with a generated starting time.
+- A world-time anchor with a generated starting time. The narrator advances it at
+  most once per turn for meaningful intervals, not routine conversation.
 - Factions, NPC goals/plans/knowledge, and canonical facts with GM/player visibility.
 - Discovery tools for new or hidden locations, NPCs, factions, and facts.
 

@@ -51,6 +51,8 @@ them.
 - Bounds and references are enforced server-side. A rejected call returns
   `ERROR: ...` to the model without aborting the turn. Identical tool effects are
   suppressed within a turn so a repeated loop cannot double-charge state.
+- Time is a single anchor, not a stopwatch: at most one meaningful
+  `advance_time` per turn; named clocks remain event-driven pressure.
 
 ### Context retrieval
 
@@ -102,9 +104,9 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 84 passed |
+| `uv run pytest -q` | 85 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 72 files already formatted |
+| `uv run ruff format --check .` | 73 files already formatted |
 | `uv run mypy` | no issues in 61 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
@@ -116,6 +118,7 @@ network calls and need no credentials. Coverage includes:
 - dice outcomes and modifier math;
 - tool bounds: inventory add/remove, health clamps, clock clamps, unknown tools,
   bad argument types, fact record/reveal;
+- one meaningful time advance per turn; a second call is rejected;
 - campaign creation, generated start time and time-of-day label, file layout,
   player/GM separation, restart reload;
 - seed validation: duplicate and slug-colliding ids, distinct character/NPC
@@ -199,6 +202,9 @@ Live OpenAI smoke test (GPT-6 Luna):
   from markdown took ~0.4 s.
 - A live turn against a 502-NPC / 2,003-fact campaign used 15,724 input / 1,367
   output tokens and produced a coherent Sable scene without noise facts.
+- A live wait/travel scene advanced the anchor exactly once (+20m) and cost
+  **$0.00733** at GPT-6 Luna list rates, confirming the one-time-advance rule and
+  the new pricing table.
 - Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations

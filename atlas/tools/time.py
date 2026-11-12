@@ -12,9 +12,15 @@ def handle_advance_time(ctx: ToolContext, args: dict[str, object]) -> str:
         raise ToolError("minutes must be a positive integer")
     if minutes > 60 * 24 * 30:
         raise ToolError("a single time advance is limited to 30 in-world days")
+    if ctx.time_advanced:
+        raise ToolError(
+            "advance_time may be called only once per turn; combine the elapsed "
+            "time into a single call"
+        )
 
     before = ctx.state.meta.world_time_minutes
     ctx.state.meta.world_time_minutes = before + minutes
+    ctx.time_advanced = True
     ctx.note(f"world time +{minutes}m -> {format_world_time(ctx.state.meta.world_time_minutes)}")
     suffix = f" ({reason})" if reason else ""
     now = format_world_time(ctx.state.meta.world_time_minutes)

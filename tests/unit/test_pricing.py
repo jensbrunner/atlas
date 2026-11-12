@@ -55,6 +55,9 @@ def test_date_suffix_and_alias_resolution() -> None:
     alias = price_for("deepseek-v4.1-flash")
     assert alias is not None and alias.model == "deepseek-flash"
 
+    dotted = price_for("claude-sonnet-5.5")
+    assert dotted is not None and dotted.model == "claude-sonnet-5-5"
+
 
 def test_unknown_model_without_fallback_is_unpriced() -> None:
     assert price_for("house-model") is None

@@ -139,7 +139,10 @@ SPECS: list[ToolSpec] = [
     ),
     ToolSpec(
         name="advance_time",
-        description="Advance in-world time by a positive number of minutes.",
+        description=(
+            "Advance in-world time by a meaningful interval: travel, waiting, sleep, "
+            "or a long scene. Call at most once per turn and not for routine conversation."
+        ),
         parameters=_object(
             {
                 "minutes": {"type": "integer", "minimum": 1},

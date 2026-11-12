@@ -199,6 +199,14 @@ unknown IDs use the configured fallback rates. Promotional, long-context,
 peak/off-peak, cache, and regional variations are noted but not modeled. The
 Usage modal shows the source date and links to provider pricing pages.
 
+## ADR-027 — Keep a time anchor, not a time subsystem
+
+Accepted. `world_time_minutes` persists for chronology, deadlines, world turns,
+and the journal. The narrator calls `advance_time` at most once per turn for a
+meaningful interval; a second call is rejected, and routine conversation does not
+advance the clock. Named clocks remain event-driven pressure, not wall time.
+This keeps continuity without minute-by-minute bookkeeping. See [TIME.md](TIME.md).
+
 ## Deferred decisions
 
 - Token-level narration streaming.

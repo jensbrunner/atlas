@@ -17,6 +17,7 @@ class ToolContext:
     rolls: list[RollRecord] = field(default_factory=list)
     changes: list[str] = field(default_factory=list)
     world_turn_requested: bool = False
+    time_advanced: bool = False
 
     def note(self, change: str) -> None:
         self.changes.append(change)

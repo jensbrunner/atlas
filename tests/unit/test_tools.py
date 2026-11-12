@@ -72,6 +72,20 @@ def test_clock_advance_is_bounded(tmp_path: Path) -> None:
     assert clock.filled == 0
 
 
+def test_advance_time_is_once_per_turn(tmp_path: Path) -> None:
+    state = _state(tmp_path)
+    registry = build_default_registry()
+    ctx = _context(state)
+    before = state.meta.world_time_minutes
+
+    first = registry.execute(ctx, "advance_time", {"minutes": 10})
+    second = registry.execute(ctx, "advance_time", {"minutes": 20})
+
+    assert "Advanced 10 minutes" in first
+    assert second.startswith("ERROR:")
+    assert state.meta.world_time_minutes == before + 10
+
+
 def test_unknown_tool_and_bad_arguments_return_errors(tmp_path: Path) -> None:
     state = _state(tmp_path)
     registry = build_default_registry()

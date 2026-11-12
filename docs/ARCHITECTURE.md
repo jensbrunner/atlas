@@ -160,7 +160,7 @@ round-trip, not just the visible prose.
 | `patch_character` | health, stress, supplies, currency, conditions |
 | `patch_inventory` | add/remove/set item quantities |
 | `patch_clock` / `create_clock` | pressure clocks |
-| `advance_time` | in-world minutes |
+| `advance_time` | one meaningful in-world interval per turn |
 | `update_npc` / `update_faction` | location, attitude, goals, plans, knowledge, resources |
 | `create_npc` / `create_location` | introduce new people and places |
 | `reveal_npc` / `reveal_location` / `reveal_faction` | mark discoveries |
@@ -200,6 +200,13 @@ known entity references, monotonic world time, valid fact/NPC references.
 - Cost is recomputed for historical turns from the table, so old zero-cost turns
   become priced after the table is added. Turn files still store the estimate
   captured at the time.
+
+## Time and clocks
+
+`world_time_minutes` is a lightweight anchor, not a stopwatch. The narrator calls
+`advance_time` at most once per turn and only for meaningful intervals; a second
+call is rejected. Named clocks are event-driven pressure tracks, independent of
+wall time. See [TIME.md](TIME.md).
 
 ## Failure semantics
 
