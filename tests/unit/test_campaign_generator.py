@@ -23,6 +23,20 @@ class SequenceProvider:
         raise AssertionError("campaign generation should not use complete")
 
 
+def test_character_hint_reaches_the_generator() -> None:
+    provider = SequenceProvider([seed_payload()])
+    generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
+
+    generator.generate(
+        CampaignRequest(
+            prompt="A harbor mystery.",
+            character="A disgraced cartographer with more nerve than sense.",
+        )
+    )
+
+    assert "disgraced cartographer" in provider.requests[0].user_input
+
+
 def test_generation_retries_once_with_the_validation_error() -> None:
     provider = SequenceProvider(
         [

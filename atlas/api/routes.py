@@ -59,6 +59,7 @@ def create_campaign(request: Request, body: CreateCampaignBody) -> dict[str, Any
             prompt=body.prompt,
             genre=body.genre,
             tone=body.tone,
+            character=body.character,
         )
     )
     return {

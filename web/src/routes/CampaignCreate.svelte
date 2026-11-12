@@ -17,6 +17,7 @@
   let title = $state('')
   let genre = $state('')
   let tone = $state('')
+  let character = $state('')
 
   const examples = [
     'A rain-soaked harbor town where a shipment vanished and everyone has a reason to lie about it.',
@@ -32,6 +33,7 @@
       title: title.trim(),
       genre: genre.trim(),
       tone: tone.trim(),
+      character: character.trim(),
     })
   }
 </script>
@@ -53,6 +55,15 @@
         placeholder="A rain-soaked harbor town where a shipment vanished…"
         disabled={pending}
       ></textarea>
+    </label>
+
+    <label>
+      <span>Character concept (optional)</span>
+      <input
+        bind:value={character}
+        placeholder="A disgraced cartographer with more nerve than sense…"
+        disabled={pending}
+      />
     </label>
 
     <div class="row">

@@ -165,7 +165,7 @@ rates, cost estimates stay at zero.
 GET    /healthz
 GET    /api/config
 GET    /api/campaigns
-POST   /api/campaigns                 {title?, prompt?, genre?, tone?}
+POST   /api/campaigns                 {title?, prompt?, genre?, tone?, character?}
 GET    /api/campaigns/{id}
 DELETE /api/campaigns/{id}
 GET    /api/campaigns/{id}/player

@@ -88,7 +88,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 71 passed |
+| `uv run pytest -q` | 72 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 65 files already formatted |
 | `uv run mypy` | no issues in 55 source files |
@@ -124,8 +124,8 @@ network calls and need no credentials. Coverage includes:
 - world turn clock changes hidden from player narration, world-turn files, and
   world turns loading after a player turn with the same number;
 - auditor findings and empty findings;
-- campaign generation retry with validation feedback, failure after two tries, and
-  a cross-campaign name avoid-list;
+- campaign generation retry with validation feedback, failure after two tries,
+  a cross-campaign name avoid-list, and a character-concept hint;
 - context truncation preserving the player action and narrator instructions, plus
   character background, campaign notes, present NPCs, and time phase reaching the
   packet;

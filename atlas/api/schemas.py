@@ -12,6 +12,7 @@ class CreateCampaignBody(BaseModel):
     prompt: str = ""
     genre: str = ""
     tone: str = ""
+    character: str = ""
 
 
 class PlayTurnBody(BaseModel):

@@ -148,6 +148,7 @@ export interface CreateCampaignBody {
   prompt?: string
   genre?: string
   tone?: string
+  character?: string
 }
 
 export interface GmView {

@@ -17,6 +17,7 @@ class CampaignRequest:
     prompt: str = ""
     genre: str = ""
     tone: str = ""
+    character: str = ""
 
 
 def _obj(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
@@ -195,6 +196,7 @@ class CampaignGenerator:
             f"Prompt: {request.prompt or 'Invent a fresh campaign.'}",
             f"Genre: {request.genre or 'your choice'}",
             f"Tone: {request.tone or 'your choice'}",
+            f"Player character hint: {request.character or 'your choice'}",
         ]
         names = sorted({name.strip() for name in (avoid_names or []) if name.strip()})
         if names:
