@@ -59,17 +59,22 @@ def test_character_patch_clamps_bounds(tmp_path: Path) -> None:
     assert error.startswith("ERROR:")
 
 
-def test_clock_advance_is_bounded(tmp_path: Path) -> None:
+def test_completing_a_clock_archives_it_as_a_fact(tmp_path: Path) -> None:
     state = _state(tmp_path)
     registry = build_default_registry()
     ctx = _context(state)
 
-    clock = state.world.clocks["storm_arrival"]
-    registry.execute(ctx, "patch_clock", {"clock": "storm_arrival", "delta": 99})
-    assert clock.filled == clock.segments
+    result = registry.execute(ctx, "patch_clock", {"clock": "storm_arrival", "delta": 99})
 
-    registry.execute(ctx, "patch_clock", {"clock": "storm_arrival", "delta": -99})
-    assert clock.filled == 0
+    assert "resolved" in result
+    assert "storm_arrival" not in state.world.clocks
+    fact = state.world.facts["fact_clock_storm_arrival"]
+    assert fact.visibility == "player"
+    assert "Storm Arrival" in fact.text
+    assert "storm closes the harbor" in fact.text
+
+    missing = registry.execute(ctx, "patch_clock", {"clock": "storm_arrival", "delta": -1})
+    assert missing.startswith("ERROR:")
 
 
 def test_advance_time_is_once_per_turn(tmp_path: Path) -> None:

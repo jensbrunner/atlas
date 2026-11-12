@@ -30,7 +30,9 @@ Use it for meaningful intervals, not routine conversation.
 - Scene-level time is carried by prose ("by the time the storm breaks", "the next
   morning"); the anchor is only updated when a meaningful interval passes.
 - Named clocks remain separate. They are **event pressure**, not wall time:
-  `patch_clock` advances when the fiction earns it, not on a timer.
+  `patch_clock` advances when the fiction earns it, not on a timer. When a clock
+  fills, its trigger is recorded as a fact and the clock leaves the active list, so
+  the consequence survives without a completed clock cluttering the UI.
 - The world agent runs automatically after the turn interval or in-world minute
   threshold, so time passing also has offscreen consequences without a button
   click. The manual "World now" control is only an override.

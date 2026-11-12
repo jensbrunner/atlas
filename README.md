@@ -137,11 +137,13 @@ Deliberately small:
 - A short, free-form skill list; the generator picks a handful suited to the
   character, and any skill name can carry an integer rating.
 - `2d6 + attribute + skill + situational modifier` against a difficulty. The
-  result is `failure`, `mixed_success`, or `success`.
+  result is `failure`, `mixed_success`, or `success`. Every roll records and shows
+  the attribute and skill used.
 - Health, stress, supplies, currency, conditions, inventory quantities. Health
   loss is concrete; at 0 the character is incapacitated rather than arbitrarily
   killed. Stress represents fear, guilt, and exhaustion.
-- Named clocks with segments and triggers.
+- Named clocks with segments and triggers. When a clock fills, its trigger is
+  archived as a fact and the clock leaves active play.
 - A world-time anchor with a generated starting time. The narrator advances it at
   most once per turn for meaningful intervals, not routine conversation.
 - Factions, NPC goals/plans/knowledge, and canonical facts with GM/player visibility.

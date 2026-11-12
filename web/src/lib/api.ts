@@ -90,6 +90,11 @@ export interface NPC {
 
 export interface Roll {
   label: string
+  attribute: string
+  skill: string
+  attribute_value: number
+  skill_value: number
+  bonus: number
   dice: number[]
   modifier: number
   difficulty: number

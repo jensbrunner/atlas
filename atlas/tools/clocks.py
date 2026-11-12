@@ -1,9 +1,36 @@
 from __future__ import annotations
 
 from atlas.ids import slugify
-from atlas.state.schemas import Clock
+from atlas.state.schemas import Clock, Fact
 from atlas.tools._util import as_int
 from atlas.tools.context import ToolContext, ToolError
+
+
+def _complete_clock(
+    ctx: ToolContext,
+    clock_id: str,
+    clock: Clock,
+    message: str,
+) -> str:
+    trigger = clock.trigger.strip() or "the pressure resolves."
+    base = f"fact_clock_{slugify(clock_id)}"
+    fact_id = base
+    suffix = 2
+    while fact_id in ctx.state.world.facts:
+        fact_id = f"{base}_{suffix}"
+        suffix += 1
+    ctx.state.world.facts[fact_id] = Fact(
+        id=fact_id,
+        text=f"{clock.name} reached its end: {trigger}",
+        visibility=clock.visibility,
+        tags=["clock"],
+    )
+    del ctx.state.world.clocks[clock_id]
+    ctx.note(f"clock resolved: {clock_id}")
+    return (
+        f"{message}. The clock is full and resolved; its trigger is recorded "
+        f"as {fact_id}: {trigger}"
+    )
 
 
 def handle_patch_clock(ctx: ToolContext, args: dict[str, object]) -> str:
@@ -23,8 +50,7 @@ def handle_patch_clock(ctx: ToolContext, args: dict[str, object]) -> str:
         message += f" ({reason})"
     ctx.note(message)
     if clock.filled == clock.segments:
-        trigger = clock.trigger or "consequence"
-        return f"{message}. The clock is full; its trigger now applies: {trigger}"
+        return _complete_clock(ctx, clock_id, clock, message)
     return message
 
 

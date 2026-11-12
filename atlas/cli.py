@@ -84,8 +84,9 @@ def cmd_demo(args: argparse.Namespace) -> int:
     print(result.narration)
     if result.rolls:
         for roll in result.rolls:
+            check = f" ({roll.check})" if roll.check else ""
             print(
-                f"  roll: {roll.label} {roll.dice[0]}+{roll.dice[1]}"
+                f"  roll: {roll.label}{check} {roll.dice[0]}+{roll.dice[1]}"
                 f"{roll.modifier:+d} = {roll.total} vs {roll.difficulty} ({roll.outcome})"
             )
     print()

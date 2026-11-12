@@ -166,7 +166,7 @@ round-trip, not just the visible prose.
 | `roll` | 2d6 + attribute + skill + modifier vs difficulty; records the roll |
 | `patch_character` | health, stress, supplies, currency, conditions |
 | `patch_inventory` | add/remove/set item quantities |
-| `patch_clock` / `create_clock` | pressure clocks |
+| `patch_clock` / `create_clock` | pressure clocks; a full clock becomes a fact and is removed |
 | `advance_time` | one meaningful in-world interval per turn |
 | `update_npc` / `update_faction` | location, attitude, goals, plans, knowledge, resources |
 | `create_npc` / `create_location` | introduce new people and places |

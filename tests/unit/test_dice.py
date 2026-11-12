@@ -45,10 +45,17 @@ def test_modifier_is_attribute_plus_skill() -> None:
         label="test",
         attribute="insight",
         attribute_value=2,
+        skill="lore",
         skill_value=2,
         bonus=1,
         difficulty=8,
     )
+    assert record.attribute == "insight"
+    assert record.skill == "lore"
+    assert record.attribute_value == 2
+    assert record.skill_value == 2
+    assert record.bonus == 1
+    assert record.check == "Insight + lore"
     assert record.modifier == 5
     assert record.total == 10
     assert record.outcome == "success"

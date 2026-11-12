@@ -147,11 +147,25 @@ class CampaignMeta(StrictModel):
 
 class RollRecord(StrictModel):
     label: str
+    attribute: str = ""
+    skill: str = ""
+    attribute_value: int = 0
+    skill_value: int = 0
+    bonus: int = 0
     dice: list[int]
     modifier: int
     difficulty: int
     total: int
     outcome: str
+
+    @property
+    def check(self) -> str:
+        parts = []
+        if self.attribute:
+            parts.append(self.attribute.title())
+        if self.skill:
+            parts.append(self.skill)
+        return " + ".join(parts)
 
 
 class Usage(StrictModel):

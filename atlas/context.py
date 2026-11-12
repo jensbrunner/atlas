@@ -197,7 +197,8 @@ def recent_turns(state: CampaignState, limit: int) -> str:
             block.append(
                 "Rolls: "
                 + "; ".join(
-                    f"{roll.label} {roll.dice[0]}+{roll.dice[1]}{roll.modifier:+d}"
+                    f"{roll.label}{f' ({roll.check})' if roll.check else ''} "
+                    f"{roll.dice[0]}+{roll.dice[1]}{roll.modifier:+d}"
                     f"={roll.total} vs {roll.difficulty} ({roll.outcome})"
                     for roll in turn.rolls
                 )

@@ -53,6 +53,8 @@ them.
   suppressed within a turn so a repeated loop cannot double-charge state.
 - Time is a single anchor, not a stopwatch: at most one meaningful
   `advance_time` per turn; named clocks remain event-driven pressure.
+- Rolls persist and display the attribute, skill, and their values; a completed
+  clock archives its trigger as a fact and leaves active play.
 
 ### Context retrieval
 
@@ -117,8 +119,10 @@ network calls and need no credentials. Coverage includes:
 
 - frontmatter round-trip, GM block stripping/extraction;
 - dice outcomes and modifier math;
+- roll records retaining the attribute, skill, and component values;
 - tool bounds: inventory add/remove, health clamps, clock clamps, unknown tools,
   bad argument types, fact record/reveal;
+- completed clocks archived as facts and removed from active clocks;
 - one meaningful time advance per turn; a second call is rejected;
 - campaign creation, generated start time and time-of-day label, file layout,
   player/GM separation, restart reload;

@@ -15,6 +15,7 @@ def resolve_roll(
     label: str,
     attribute: str,
     attribute_value: int,
+    skill: str = "",
     skill_value: int,
     bonus: int,
     difficulty: int,
@@ -35,6 +36,11 @@ def resolve_roll(
         outcome = "failure"
     return RollRecord(
         label=label,
+        attribute=attribute,
+        skill=skill,
+        attribute_value=attribute_value,
+        skill_value=skill_value,
+        bonus=bonus,
         dice=dice,
         modifier=modifier,
         difficulty=difficulty,
@@ -63,16 +69,21 @@ def handle_roll(ctx: ToolContext, args: dict[str, object]) -> str:
         label=label,
         attribute=attribute,
         attribute_value=int(attribute_value),
+        skill=skill,
         skill_value=skill_value,
         bonus=bonus,
         difficulty=difficulty,
     )
     ctx.rolls.append(record)
+    descriptor = attribute.title()
+    if skill:
+        descriptor += f" + {skill}"
     ctx.note(
-        f"rolled {record.label}: {record.dice[0]}+{record.dice[1]}{record.modifier:+d}"
+        f"rolled {record.label} ({descriptor}): "
+        f"{record.dice[0]}+{record.dice[1]}{record.modifier:+d}"
         f" = {record.total} vs {record.difficulty} ({record.outcome})"
     )
     return (
-        f"{record.outcome}. {record.dice[0]}+{record.dice[1]}"
+        f"{record.outcome}. {descriptor}: {record.dice[0]}+{record.dice[1]}"
         f"{record.modifier:+d} = {record.total} against difficulty {record.difficulty}."
     )

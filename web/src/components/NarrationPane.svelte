@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PlayerView } from '../lib/api'
+  import type { PlayerView, Roll } from '../lib/api'
 
   let {
     view,
@@ -9,6 +9,26 @@
 
   let scroller = $state<HTMLDivElement | null>(null)
   let seconds = $state(0)
+
+  function title(value: string): string {
+    return value ? value[0].toUpperCase() + value.slice(1).replaceAll('_', ' ') : ''
+  }
+
+  function rollCheck(roll: Roll): string {
+    const parts: string[] = []
+    if (roll.attribute) {
+      const value = roll.attribute_value >= 0 ? `+${roll.attribute_value}` : `${roll.attribute_value}`
+      parts.push(`${title(roll.attribute)} ${value}`)
+    }
+    if (roll.skill) {
+      const value = roll.skill_value >= 0 ? `+${roll.skill_value}` : `${roll.skill_value}`
+      parts.push(`${title(roll.skill)} ${value}`)
+    }
+    if (roll.bonus) {
+      parts.push(`situational ${roll.bonus >= 0 ? '+' : ''}${roll.bonus}`)
+    }
+    return parts.join(' · ')
+  }
 
   $effect(() => {
     if (!pending) return
@@ -44,7 +64,7 @@
         <div class="rolls">
           {#each turn.rolls as roll}
             <span class="roll {roll.outcome}">
-              {roll.label}: {roll.dice[0]}+{roll.dice[1]}
+              {roll.label}{#if rollCheck(roll)} · {rollCheck(roll)}{/if}: {roll.dice[0]}+{roll.dice[1]}
               {roll.modifier >= 0 ? '+' : ''}{roll.modifier} = {roll.total}
               vs {roll.difficulty} · {roll.outcome.replace('_', ' ')}
             </span>

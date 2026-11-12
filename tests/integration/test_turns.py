@@ -40,6 +40,9 @@ def test_play_turn_rolls_inventory_time_and_persists(tmp_path: Path) -> None:
 
     assert result.turn == 1
     assert len(result.rolls) == 1
+    assert result.rolls[0].attribute == "agility"
+    assert result.rolls[0].skill == "survival"
+    assert result.rolls[0].check == "Agility + survival"
     assert result.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 30
     rations = next(item for item in result.player["inventory"] if item["name"] == "Rations")
     assert rations["quantity"] == 2

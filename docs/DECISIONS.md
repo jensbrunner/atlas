@@ -215,6 +215,13 @@ requirements, style guidance, and agency constraints only. The model's own
 setting or name biases are accepted rather than corrected in code. The creation
 form starts with an empty premise and a neutral placeholder.
 
+## ADR-030 — Completed clocks become facts
+
+Accepted. When a pressure clock fills, its trigger is written as a canonical fact
+with the clock's visibility and the clock is removed from the active clock list.
+The consequence remains in canon and the UI stops showing a finished clock. A
+clock can be recreated later with the same id if the pressure returns.
+
 ## Deferred decisions
 
 - Token-level narration streaming.

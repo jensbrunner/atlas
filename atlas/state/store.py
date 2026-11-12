@@ -382,8 +382,9 @@ def _journal_entry(record: TurnRecord) -> str:
     if record.rolls:
         lines.append("")
         for roll in record.rolls:
+            check = f" ({roll.check})" if roll.check else ""
             lines.append(
-                f"*{roll.label}: {roll.dice[0]}+{roll.dice[1]}"
+                f"*{roll.label}{check}: {roll.dice[0]}+{roll.dice[1]}"
                 f"{roll.modifier:+d} = {roll.total} vs {roll.difficulty} — {roll.outcome}*"
             )
     return "\n".join(lines).strip()
