@@ -52,3 +52,9 @@ def test_world_and_audit_prompts_keep_their_instructions(tmp_path: Path) -> None
 def test_character_background_reaches_the_narrator(tmp_path: Path) -> None:
     sheet = character_sheet(_state(tmp_path))
     assert "A weathered roadwright" in sheet
+
+
+def test_prompt_names_the_present_cast_and_time_phase(tmp_path: Path) -> None:
+    prompt = build_turn_prompt(_state(tmp_path), "look around")
+    assert "NPCs present: Mara the Keeper" in prompt
+    assert "Dawn" in prompt

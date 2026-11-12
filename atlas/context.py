@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from atlas.state.schemas import CampaignState
-from atlas.state.store import format_world_time
+from atlas.state.store import format_world_time, time_of_day
 
 
 def _clip(text: str, limit: int) -> str:
@@ -107,10 +107,13 @@ def world_section(state: CampaignState) -> str:
         f"- {fact.id} [{fact.visibility}] {fact.text}" for fact in world.facts.values()
     )
     location = world.locations.get(world.current_location)
+    present = [npc.name for npc in state.npcs.values() if npc.location == world.current_location]
     lines = [
         f"Current location: {world.current_location}" + (f" — {location.name}" if location else ""),
         f"World time: {format_world_time(state.meta.world_time_minutes)} "
-        f"({state.meta.world_time_minutes} minutes)",
+        f"({time_of_day(state.meta.world_time_minutes)}; "
+        f"{state.meta.world_time_minutes} minutes)",
+        f"NPCs present: {', '.join(present) if present else 'none'}",
         f"Situation: {world.situation}",
         "",
         "Locations:",

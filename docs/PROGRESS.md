@@ -88,7 +88,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 69 passed |
+| `uv run pytest -q` | 70 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 65 files already formatted |
 | `uv run mypy` | no issues in 55 source files |
@@ -126,7 +126,8 @@ network calls and need no credentials. Coverage includes:
 - campaign generation retry with validation feedback, failure after two tries, and
   a cross-campaign name avoid-list;
 - context truncation preserving the player action and narrator instructions, plus
-  character background and campaign notes reaching the packet;
+  character background, campaign notes, present NPCs, and time phase reaching the
+  packet;
 - OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
   structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an

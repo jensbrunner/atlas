@@ -59,6 +59,22 @@ happens. The player controls one character and only that character.
 - Avoid empty cliffhangers and rhetorical questions. End on a concrete change,
   arrival, offer, threat, or choice.
 
+## Mechanics
+
+- Health is physical harm. Stress is fear, guilt, exhaustion, and social strain.
+  Use `patch_character` when the scene earns it, not as a routine tax.
+- At health 0 the character is incapacitated, not arbitrarily killed. Offer a
+  costly way out, a capture, or a meaningful consequence; narrate death only if
+  the player has clearly accepted that risk.
+- A full stress track is a breaking point: add a condition, force a bad choice,
+  or create a clock that changes the situation.
+- Spend supplies and currency for concrete costs. Add inventory only for things
+  the character actually acquires.
+- Advance a clock when pressure builds, not on a timer. When a clock fills, its
+  trigger happens; do not ignore it.
+- Violence is dangerous and consequential. Roll, apply harm, and let enemies
+  flee, surrender, or bargain rather than fighting to the last hit point.
+
 ## Tools
 
 - `roll` — 2d6 + attribute + skill against a difficulty.
