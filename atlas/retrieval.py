@@ -370,27 +370,30 @@ def select_context(
             break
 
     # A present scene should include facts its people know.
+    fact_limit = limits["fact"]
     known: list[str] = []
     for npc_id in selection.npcs:
         npc = state.npcs.get(npc_id)
         if npc is not None:
             known.extend(npc.knows)
 
-    fact_limit = limits["fact"]
-    selected_facts = _unique(
-        [fact for fact in known if fact in world.facts],
-        fact_limit,
-    )
+    # Action-relevant facts come first; known facts fill the remaining slots.
+    selected_facts: list[str] = []
     for doc in _qualified(
         index,
         query,
         kind="fact",
-        limit=fact_limit + len(selected_facts),
+        limit=fact_limit + len(known),
     ):
-        if len(selected_facts) >= fact_limit:
-            break
         if doc.id not in selected_facts:
             selected_facts.append(doc.id)
+        if len(selected_facts) >= fact_limit:
+            break
+    for fact_id in known:
+        if len(selected_facts) >= fact_limit:
+            break
+        if fact_id in world.facts and fact_id not in selected_facts:
+            selected_facts.append(fact_id)
     selection.facts = selected_facts
 
     # Clocks with pressure are more important than empty ones.

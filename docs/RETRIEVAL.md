@@ -95,6 +95,11 @@ noise:       excluded
 A small campaign still sends nearly all canon because the quotas are not reached.
 The savings grow with the world.
 
+State loading is separate from retrieval: loading 502 NPC files and 2,003 facts
+took about 406 ms on this machine. Retrieval and prompt assembly then cost ~15 ms
+each. A persisted/lazy index is the next step if state loading becomes the
+bottleneck.
+
 ## Tests
 
 - `tests/unit/test_retrieval.py` builds 120 NPCs and 200 facts, then verifies:
@@ -115,3 +120,5 @@ The savings grow with the world.
   aid, not a proof.
 - Entity relationships are inferred from location, NPC knowledge, tags, and text;
   there is no general relationship graph yet.
+- Player panels still list all known entities; retrieval efficiency applies to the
+  model packet. Player-side pagination or a codex search is future work.

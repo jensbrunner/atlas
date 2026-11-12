@@ -304,7 +304,7 @@ def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 
 def build_audit_prompt(state: CampaignState, *, char_budget: int = 40_000) -> str:
     selection = select_context(
         state,
-        state.turns[-1].narration[:1_500] if state.turns else "continuity audit",
+        " ".join(turn.narration[:900] for turn in state.turns[-3:]) or "continuity audit",
         mode="audit",
     )
     head = "\n".join(

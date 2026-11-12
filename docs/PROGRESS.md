@@ -191,7 +191,10 @@ Live OpenAI smoke test (GPT-6 Luna):
   recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
 - Synthetic retrieval stress test: 1,002 NPCs and 5,003 facts produced a
   3,067-character packet with 2 NPCs and 3 facts in ~15 ms, including the relevant
-  entity and excluding unrelated noise.
+  entity and excluding unrelated noise. Loading a 502-NPC / 2,003-fact campaign
+  from markdown took ~0.4 s.
+- A live turn against a 502-NPC / 2,003-fact campaign used 15,724 input / 1,367
+  output tokens and produced a coherent Sable scene without noise facts.
 - Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations
@@ -203,6 +206,8 @@ Live OpenAI smoke test (GPT-6 Luna):
 - Retrieval is lexical BM25, not semantic. Synonyms may miss; names and
   `lookup_canon` compensate. The index is rebuilt each turn, and state loading
   still reads the full campaign directory.
+- Player panels still render all known people/facts. Retrieval keeps the model
+  context small; player-side pagination or a codex search is future work.
 - Audit uses a wider retrieved packet, not necessarily every fact; it is a
   continuity aid, not a proof.
 - Secret-leak detection is verbatim matching against GM fact text, GM prose
