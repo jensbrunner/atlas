@@ -17,6 +17,7 @@
   import InventoryPanel from '../components/InventoryPanel.svelte'
   import JournalPanel from '../components/JournalPanel.svelte'
   import NarrationPane from '../components/NarrationPane.svelte'
+  import UsagePanel from '../components/UsagePanel.svelte'
   import WorldPanel from '../components/WorldPanel.svelte'
 
   let { campaignId, onBack }: { campaignId: string; onBack: () => void } = $props()
@@ -30,6 +31,7 @@
   let worldPending = $state(false)
   let tab = $state<Tab>('character')
   let gmOpen = $state(false)
+  let usageOpen = $state(false)
   let auditOpen = $state(false)
   let auditLoading = $state(false)
   let auditError = $state<string | null>(null)
@@ -166,6 +168,7 @@
       <button onclick={advanceWorld} disabled={worldPending || pending}>
         {worldPending ? 'World is moving…' : 'Advance world'}
       </button>
+      <button onclick={() => (usageOpen = true)}>Usage</button>
       <button onclick={runAudit} disabled={pending}>Audit</button>
       <button onclick={() => (gmOpen = true)}>GM view</button>
     </div>
@@ -213,6 +216,10 @@
 
 {#if gmOpen && view}
   <GmPanel campaignId={campaignId} onClose={() => (gmOpen = false)} />
+{/if}
+
+{#if usageOpen}
+  <UsagePanel campaignId={campaignId} onClose={() => (usageOpen = false)} />
 {/if}
 
 {#if auditOpen}
@@ -271,6 +278,8 @@
     display: flex;
     gap: 0.4rem;
     flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .controls button {

@@ -77,7 +77,8 @@ them.
 - Svelte 5 + Vite + TypeScript UI: campaign list with delete confirmation,
   creation form, play view, narration transcript, action composer, character
   (with bio)/inventory/world/clocks/journal panels, GM modal with NPC plans and
-  faction secrets, audit modal. Turns stream progress stages and an elapsed timer.
+  faction secrets, audit modal, and a token-usage modal. Turns stream progress
+  stages and an elapsed timer.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -88,10 +89,10 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 72 passed |
+| `uv run pytest -q` | 74 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 65 files already formatted |
-| `uv run mypy` | no issues in 55 source files |
+| `uv run ruff format --check .` | 66 files already formatted |
+| `uv run mypy` | no issues in 56 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
@@ -134,7 +135,8 @@ network calls and need no credentials. Coverage includes:
 - CLI settings overrides reaching the served app, and `demo` running without an
   explicit data directory;
 - HTTP round-trip, 404, 422 validation, deletion;
-- streamed turn events ending in the committed turn result.
+- streamed turn events ending in the committed turn result;
+- token-usage aggregation by turn and model, plus the usage endpoint.
 
 Manual smoke test (fake provider, built frontend):
 
@@ -169,6 +171,8 @@ Live OpenAI smoke test (GPT-6 Luna):
 - A streamed live turn reported `reading → roll → advance_time → reveal_location →
   set_scene → update_npc → saving → done` in 38.1 s and committed the final
   result with a successful roll and new discovery.
+- The usage endpoint reported 185,469 input / 15,117 output tokens across eight
+  recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
 - Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations

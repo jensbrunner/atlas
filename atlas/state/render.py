@@ -18,6 +18,58 @@ def _turn_view(turn: Any) -> dict[str, Any]:
     }
 
 
+def usage_view(state: CampaignState) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    input_tokens = output_tokens = 0
+    estimated_usd = 0.0
+    models: set[str] = set()
+
+    for turn in state.turns:
+        usage = turn.usage
+        total = usage.input_tokens + usage.output_tokens
+        input_tokens += usage.input_tokens
+        output_tokens += usage.output_tokens
+        estimated_usd += usage.estimated_usd
+        if turn.model:
+            models.add(turn.model)
+        rows.append(
+            {
+                "turn": turn.turn,
+                "kind": turn.kind,
+                "action": turn.action,
+                "model": turn.model,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "total_tokens": total,
+                "estimated_usd": usage.estimated_usd,
+                "world_time": turn.world_time_after,
+            }
+        )
+
+    billable = [row for row in rows if row["total_tokens"] > 0]
+    return {
+        "campaign": {
+            "id": state.meta.id,
+            "title": state.meta.title,
+            "turn_count": state.meta.turn_count,
+            "world_time": format_world_time(state.meta.world_time_minutes),
+        },
+        "totals": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "estimated_usd": round(estimated_usd, 6),
+            "turns": len(rows),
+            "billable_turns": len(billable),
+            "average_tokens_per_turn": (
+                (input_tokens + output_tokens) // len(billable) if billable else 0
+            ),
+        },
+        "models": sorted(models),
+        "turns": rows,
+    }
+
+
 def player_view(state: CampaignState) -> dict[str, Any]:
     world = state.world
     visible_facts = [

@@ -137,6 +137,55 @@ export interface TurnResult {
   player: PlayerView
 }
 
+export interface UsageTotals {
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  estimated_usd: number
+  turns: number
+  billable_turns: number
+  average_tokens_per_turn: number
+}
+
+export interface UsageTurn {
+  turn: number
+  kind: string
+  action: string
+  model: string
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  estimated_usd: number
+  world_time: number
+}
+
+export interface UsageTracking {
+  provider: string
+  live: boolean
+  models: {
+    campaign: string
+    narrator: string
+    world: string
+    auditor: string
+  }
+  input_usd_per_million: number
+  output_usd_per_million: number
+  session_usd_limit: number
+}
+
+export interface CampaignUsage {
+  campaign: {
+    id: string
+    title: string
+    turn_count: number
+    world_time: string
+  }
+  totals: UsageTotals
+  models: string[]
+  turns: UsageTurn[]
+  tracking: UsageTracking
+}
+
 export interface AuditFinding {
   severity: string
   summary: string
@@ -292,6 +341,10 @@ export function worldTurn(campaignId: string, reason: string): Promise<{ player:
 
 export function auditCampaign(campaignId: string): Promise<{ findings: AuditFinding[] }> {
   return request(`/campaigns/${campaignId}/audit`, { method: 'POST' })
+}
+
+export function getUsage(campaignId: string): Promise<CampaignUsage> {
+  return request(`/campaigns/${campaignId}/usage`)
 }
 
 export function deleteCampaign(campaignId: string): Promise<{ deleted: string }> {

@@ -145,6 +145,24 @@ def test_api_leak_error_does_not_echo_the_secret(tmp_path: Path) -> None:
         assert after["campaign"]["turn_count"] == 0
 
 
+def test_usage_endpoint_reports_campaign_and_tracking(tmp_path: Path) -> None:
+    provider = fake_provider()
+    with _client(tmp_path, provider) as client:
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+        client.post(f"/api/campaigns/{campaign_id}/turns", json={"action": "look"})
+
+        response = client.get(f"/api/campaigns/{campaign_id}/usage")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["campaign"]["id"] == campaign_id
+        assert body["totals"]["turns"] == 2
+        assert body["turns"][-1]["kind"] == "player"
+        assert body["tracking"]["provider"] == "fake"
+        assert body["tracking"]["models"]["narrator"] == "gpt-6-luna"
+
+
 def test_streaming_turn_reports_progress_and_result(tmp_path: Path) -> None:
     provider = fake_provider(
         replies=[

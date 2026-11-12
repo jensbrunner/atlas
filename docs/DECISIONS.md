@@ -167,6 +167,14 @@ browser shows what the narrator is doing and an elapsed timer. Prose tokens are
 not streamed because a draft can be rejected by the leak scan or repair pass, and
 the turn must remain all-or-nothing.
 
+## ADR-023 — Usage is read from turn files
+
+Accepted. Token usage is stored in each turn's frontmatter. The usage endpoint
+aggregates it by campaign and per turn; the UI exposes it through a Usage modal.
+Input tokens include the GM packet and every tool round-trip, so the totals are
+larger than the visible narration. Cost remains optional until per-million rates
+are configured.
+
 ## Deferred decisions
 
 - Token-level narration streaming.

@@ -53,7 +53,7 @@ atlas/
     schemas.py         Pydantic models for all structured state
     markdown.py        frontmatter parse/serialize, GM block stripping
     store.py           atomic file writes, load, create, append turn
-    render.py          player and GM views
+    render.py          player/GM views and token-usage summary
     validate.py        structural and numeric invariants
 
   tools/
@@ -131,6 +131,10 @@ and locations use `player_known`; clocks use `visibility`.
 
 The server renders the player view. The frontend never receives GM fields it
 could accidentally display.
+
+`usage_view` aggregates each turn's stored `Usage` by input/output tokens, model,
+and estimated cost. It powers the in-app Usage modal; input includes every tool
+round-trip, not just the visible prose.
 
 ## Tools
 

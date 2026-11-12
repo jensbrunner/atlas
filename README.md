@@ -29,6 +29,8 @@ no story branches in the engine, and no database.
 - The server renders a player view by stripping GM-only material from the same
   canon the narrator sees. NPC attitudes, NPC plans, faction goals, and hidden
   facts stay GM-side.
+- A Usage button shows per-campaign input/output tokens, per-turn breakdown,
+  models, and estimated cost.
 - The world can evolve offscreen through a world agent, and a continuity auditor
   can review the canon without rewriting it.
 
@@ -170,6 +172,7 @@ GET    /api/campaigns/{id}
 DELETE /api/campaigns/{id}
 GET    /api/campaigns/{id}/player
 GET    /api/campaigns/{id}/gm
+GET    /api/campaigns/{id}/usage
 GET    /api/campaigns/{id}/turns
 POST   /api/campaigns/{id}/turns      {action}
 POST   /api/campaigns/{id}/turns/stream {action}   # SSE progress + final result

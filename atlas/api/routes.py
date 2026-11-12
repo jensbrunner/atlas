@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from atlas.agents.campaign import CampaignRequest
 from atlas.api.schemas import CreateCampaignBody, PlayTurnBody, WorldTurnBody
 from atlas.game import CampaignService
-from atlas.state.render import player_view
+from atlas.state.render import player_view, usage_view
 from atlas.state.schemas import CampaignMeta
 
 
@@ -73,6 +73,26 @@ def create_campaign(request: Request, body: CreateCampaignBody) -> dict[str, Any
 def get_campaign(request: Request, campaign_id: str) -> dict[str, Any]:
     state = service_from(request).get(campaign_id)
     return {"campaign": _meta(state.meta)}
+
+
+@router.get("/campaigns/{campaign_id}/usage")
+def get_usage(request: Request, campaign_id: str) -> dict[str, Any]:
+    settings = request.app.state.settings
+    view = usage_view(service_from(request).get(campaign_id))
+    view["tracking"] = {
+        "provider": settings.provider,
+        "live": settings.live,
+        "models": {
+            "campaign": settings.campaign_model,
+            "narrator": settings.narrator_model,
+            "world": settings.world_model,
+            "auditor": settings.auditor_model,
+        },
+        "input_usd_per_million": settings.input_usd_per_million,
+        "output_usd_per_million": settings.output_usd_per_million,
+        "session_usd_limit": settings.session_usd_limit,
+    }
+    return view
 
 
 @router.delete("/campaigns/{campaign_id}")
