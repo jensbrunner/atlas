@@ -11,6 +11,7 @@
   } from '../lib/api'
   import ActionComposer from '../components/ActionComposer.svelte'
   import AuditPanel from '../components/AuditPanel.svelte'
+  import CanonPanel from '../components/CanonPanel.svelte'
   import CharacterPanel from '../components/CharacterPanel.svelte'
   import ClocksPanel from '../components/ClocksPanel.svelte'
   import GmPanel from '../components/GmPanel.svelte'
@@ -31,6 +32,7 @@
   let worldPending = $state(false)
   let tab = $state<Tab>('character')
   let gmOpen = $state(false)
+  let canonOpen = $state(false)
   let usageOpen = $state(false)
   let auditOpen = $state(false)
   let auditLoading = $state(false)
@@ -174,6 +176,9 @@
       >
         {worldPending ? 'World is moving…' : 'World now'}
       </button>
+      <button onclick={() => (canonOpen = true)} title="View all backing campaign data">
+        Canon
+      </button>
       <button onclick={() => (usageOpen = true)}>Usage</button>
       <button onclick={runAudit} disabled={pending}>Audit</button>
       <button onclick={() => (gmOpen = true)}>GM view</button>
@@ -222,6 +227,10 @@
 
 {#if gmOpen && view}
   <GmPanel campaignId={campaignId} onClose={() => (gmOpen = false)} />
+{/if}
+
+{#if canonOpen}
+  <CanonPanel campaignId={campaignId} onClose={() => (canonOpen = false)} />
 {/if}
 
 {#if usageOpen}

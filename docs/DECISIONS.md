@@ -222,6 +222,14 @@ with the clock's visibility and the clock is removed from the active clock list.
 The consequence remains in canon and the UI stops showing a finished clock. A
 clock can be recreated later with the same id if the pressure returns.
 
+## ADR-031 — Read-only Canon inspector
+
+Accepted. The UI exposes a Canon modal backed by a read-only `canon_view`
+projection of the existing campaign state. It shows metadata, character,
+inventory, all locations, NPCs, factions, clocks, facts, notes, journal, and full
+turn records. It is an inspection surface only; it does not alter persistence,
+turn flow, or gameplay.
+
 ## Deferred decisions
 
 - Token-level narration streaming.

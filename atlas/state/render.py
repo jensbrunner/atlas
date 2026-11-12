@@ -189,6 +189,70 @@ def player_view(state: CampaignState) -> dict[str, Any]:
     }
 
 
+def canon_view(state: CampaignState) -> dict[str, Any]:
+    """Everything the harness knows, for inspection rather than play."""
+
+    character = state.character.model_dump(mode="json")
+    character["description"] = strip_gm_blocks(state.character_body)
+    inventory = sorted(
+        (
+            {"id": slug, **item.model_dump(mode="json")}
+            for slug, item in state.character.inventory.items()
+        ),
+        key=lambda item: item["name"].lower(),
+    )
+    return {
+        "campaign": {
+            **state.meta.model_dump(mode="json"),
+            "world_time": format_world_time(state.meta.world_time_minutes),
+            "time_of_day": time_of_day(state.meta.world_time_minutes),
+        },
+        "counts": {
+            "npcs": len(state.npcs),
+            "locations": len(state.world.locations),
+            "factions": len(state.world.factions),
+            "clocks": len(state.world.clocks),
+            "facts": len(state.world.facts),
+            "turns": len(state.turns),
+        },
+        "notes": {
+            "campaign": state.campaign_body,
+            "character": state.character_body,
+            "world": state.world_body,
+        },
+        "character": character,
+        "inventory": inventory,
+        "world": {
+            "situation": state.world.situation,
+            "current_location": state.world.current_location,
+            "locations": [
+                {"id": slug, **location.model_dump(mode="json")}
+                for slug, location in state.world.locations.items()
+            ],
+            "factions": [
+                {"id": slug, **faction.model_dump(mode="json")}
+                for slug, faction in state.world.factions.items()
+            ],
+            "clocks": [
+                {"id": slug, **clock.model_dump(mode="json")}
+                for slug, clock in state.world.clocks.items()
+            ],
+            "facts": [fact.model_dump(mode="json") for fact in state.world.facts.values()],
+        },
+        "npcs": [
+            {
+                "id": npc_id,
+                "sheet": npc.model_dump(mode="json"),
+                "notes": state.npc_bodies.get(npc_id, ""),
+                "gm_blocks": extract_gm_block_text(state.npc_bodies.get(npc_id, "")),
+            }
+            for npc_id, npc in state.npcs.items()
+        ],
+        "journal": state.journal,
+        "turns": [turn.model_dump(mode="json") for turn in state.turns],
+    }
+
+
 def gm_view(state: CampaignState) -> dict[str, Any]:
     view = player_view(state)
     view["gm"] = {

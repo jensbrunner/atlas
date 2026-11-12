@@ -13,7 +13,7 @@ from atlas.agents.campaign import CampaignRequest
 from atlas.api.schemas import CreateCampaignBody, PlayTurnBody, WorldTurnBody
 from atlas.game import CampaignService
 from atlas.pricing import PRICING_SOURCES, PRICING_UPDATED
-from atlas.state.render import player_view, usage_view
+from atlas.state.render import canon_view, player_view, usage_view
 from atlas.state.schemas import CampaignMeta
 
 
@@ -119,6 +119,11 @@ def get_player(request: Request, campaign_id: str) -> dict[str, Any]:
 @router.get("/campaigns/{campaign_id}/gm")
 def get_gm(request: Request, campaign_id: str) -> dict[str, Any]:
     return service_from(request).gm(campaign_id)
+
+
+@router.get("/campaigns/{campaign_id}/canon")
+def get_canon(request: Request, campaign_id: str) -> dict[str, Any]:
+    return canon_view(service_from(request).get(campaign_id))
 
 
 @router.get("/campaigns/{campaign_id}/turns")

@@ -163,6 +163,26 @@ def test_usage_endpoint_reports_campaign_and_tracking(tmp_path: Path) -> None:
         assert body["tracking"]["models"]["narrator"] == "gpt-6-luna"
 
 
+def test_canon_endpoint_exposes_full_backing_state(tmp_path: Path) -> None:
+    provider = fake_provider()
+    with _client(tmp_path, provider) as client:
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+
+        response = client.get(f"/api/campaigns/{campaign_id}/canon")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["counts"]["npcs"] >= 1
+        assert body["counts"]["facts"] >= 1
+        assert body["world"]["locations"]
+        assert body["npcs"][0]["sheet"]["goals"]
+        assert any(fact["visibility"] == "gm" for fact in body["world"]["facts"])
+        assert body["inventory"]
+        assert body["turns"][0]["kind"] == "opening"
+        assert "world_time" in body["campaign"]
+
+
 def test_streaming_turn_reports_progress_and_result(tmp_path: Path) -> None:
     provider = fake_provider(
         replies=[

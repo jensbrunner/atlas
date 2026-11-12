@@ -4,8 +4,14 @@
   let {
     title,
     onClose,
+    wide = false,
     children,
-  }: { title: string; onClose: () => void; children: Snippet } = $props()
+  }: {
+    title: string
+    onClose: () => void
+    wide?: boolean
+    children: Snippet
+  } = $props()
 </script>
 
 <svelte:window
@@ -21,7 +27,14 @@
     if (event.target === event.currentTarget) onClose()
   }}
 >
-  <div class="modal" role="dialog" aria-modal="true" aria-label={title} tabindex="-1">
+  <div
+    class="modal"
+    class:wide
+    role="dialog"
+    aria-modal="true"
+    aria-label={title}
+    tabindex="-1"
+  >
     <header>
       <h2>{title}</h2>
       <button class="ghost" onclick={onClose}>Close</button>
@@ -54,6 +67,10 @@
     border: 1px solid var(--line);
     border-radius: 12px;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  }
+
+  .modal.wide {
+    width: min(1120px, 100%);
   }
 
   header {

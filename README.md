@@ -32,6 +32,9 @@ no story branches in the engine, and no database.
   facts stay GM-side.
 - A Usage button shows per-campaign input/output tokens, per-turn breakdown,
   models, and estimated cost.
+- A Canon button opens a read-only inspector for the entire backing state:
+  campaign metadata, character, inventory, all locations, NPCs, factions, clocks,
+  facts, journal, and every turn with rolls, changes, and usage.
 - Only a relevant slice of canon is sent to the narrator. A local BM25 index
   selects the present cast, nearby places, known facts, and query-relevant
   material; the narrator can call `lookup_canon` for anything omitted. See
@@ -189,6 +192,7 @@ GET    /api/campaigns/{id}
 DELETE /api/campaigns/{id}
 GET    /api/campaigns/{id}/player
 GET    /api/campaigns/{id}/gm
+GET    /api/campaigns/{id}/canon
 GET    /api/campaigns/{id}/usage
 GET    /api/campaigns/{id}/turns
 POST   /api/campaigns/{id}/turns      {action}

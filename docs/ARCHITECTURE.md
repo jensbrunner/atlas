@@ -55,7 +55,7 @@ atlas/
     schemas.py         Pydantic models for all structured state
     markdown.py        frontmatter parse/serialize, GM block stripping
     store.py           atomic file writes, load, create, append turn
-    render.py          player/GM views and token-usage summary
+    render.py          player/GM/canon views and token-usage summary
     validate.py        structural and numeric invariants
 
   tools/
@@ -151,6 +151,11 @@ narrator needs beyond the packet. World and audit modes use wider quotas.
 - **GM view:** everything, including hidden facts, all clocks, NPC goals/plans/
   knowledge, faction goals/resources, GM prose blocks, raw journal, and world
   turns.
+
+`canon_view` is the read-only inspector projection: campaign metadata, character,
+inventory, every location/NPC/faction/clock/fact, notes, journal, and full turn
+records including usage and changes. It is exposed through the Canon modal and
+does not write anything.
 
 The server renders the player view. The frontend never receives GM fields it
 could accidentally display.

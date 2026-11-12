@@ -243,6 +243,61 @@ export interface GmView {
   }
 }
 
+export interface CanonFact extends Fact {
+  visibility: string
+  revealed_at_turn: number | null
+}
+
+export interface CanonTurn {
+  turn: number
+  kind: string
+  action: string
+  narration: string
+  world_time_before: number
+  world_time_after: number
+  model: string
+  usage: { input_tokens: number; output_tokens: number; estimated_usd: number }
+  rolls: Roll[]
+  changes: string[]
+}
+
+export interface CanonNPC {
+  id: string
+  sheet: Record<string, unknown>
+  notes: string
+  gm_blocks: string
+}
+
+export interface CanonView {
+  campaign: CampaignMeta & { world_time: string; time_of_day: string }
+  counts: {
+    npcs: number
+    locations: number
+    factions: number
+    clocks: number
+    facts: number
+    turns: number
+  }
+  notes: {
+    campaign: string
+    character: string
+    world: string
+  }
+  character: Character
+  inventory: InventoryItem[]
+  world: {
+    situation: string
+    current_location: string
+    locations: Location[]
+    factions: GmFaction[]
+    clocks: Clock[]
+    facts: CanonFact[]
+  }
+  npcs: CanonNPC[]
+  journal: string
+  turns: CanonTurn[]
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -278,6 +333,10 @@ export function getPlayer(campaignId: string): Promise<PlayerView> {
 
 export function getGm(campaignId: string): Promise<GmView> {
   return request(`/campaigns/${campaignId}/gm`)
+}
+
+export function getCanon(campaignId: string): Promise<CanonView> {
+  return request(`/campaigns/${campaignId}/canon`)
 }
 
 export interface TurnStreamEvent {

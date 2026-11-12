@@ -95,8 +95,9 @@ them.
 - Svelte 5 + Vite + TypeScript UI: campaign list with delete confirmation,
   creation form, play view, narration transcript, action composer, character
   (with bio)/inventory/world/clocks/journal panels, GM modal with NPC plans and
-  faction secrets, audit modal, and a token-usage modal. Turns stream progress
-  stages and an elapsed timer.
+  faction secrets, audit modal, token-usage modal, and a read-only Canon inspector
+  with full state and turn records. Turns stream progress stages and an elapsed
+  timer.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -107,7 +108,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 85 passed |
+| `uv run pytest -q` | 86 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 73 files already formatted |
 | `uv run mypy` | no issues in 61 source files |
@@ -160,6 +161,8 @@ network calls and need no credentials. Coverage includes:
 - CLI settings overrides reaching the served app, and `demo` running without an
   explicit data directory;
 - HTTP round-trip, 404, 422 validation, deletion;
+- read-only canon endpoint exposing hidden facts, full NPC sheets, inventory, and
+  complete turns;
 - streamed turn events ending in the committed turn result;
 - token-usage aggregation by turn and model, plus the usage endpoint;
 - built-in list prices for major models, dated-ID/alias resolution, known-model
