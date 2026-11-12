@@ -217,13 +217,6 @@ export interface TurnStreamEvent {
   code?: string
 }
 
-export function playTurn(campaignId: string, action: string): Promise<TurnResult> {
-  return request(`/campaigns/${campaignId}/turns`, {
-    method: 'POST',
-    body: JSON.stringify({ action }),
-  })
-}
-
 export async function playTurnStream(
   campaignId: string,
   action: string,
