@@ -2,7 +2,10 @@
   let {
     pending,
     onSend,
-  }: { pending: boolean; onSend: (action: string) => Promise<void> } = $props()
+  }: {
+    pending: boolean
+    onSend: (action: string) => Promise<boolean>
+  } = $props()
 
   let action = $state('')
   let input = $state<HTMLTextAreaElement | null>(null)
@@ -11,7 +14,8 @@
     const text = action.trim()
     if (!text || pending) return
     action = ''
-    await onSend(text)
+    const ok = await onSend(text)
+    if (!ok) action = text
     input?.focus()
   }
 

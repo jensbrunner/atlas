@@ -109,8 +109,10 @@
         status = streamLabel(event)
       })
       view = result.player
+      return true
     } catch (exc) {
       error = exc instanceof Error ? exc.message : String(exc)
+      return false
     } finally {
       pending = false
       status = ''
