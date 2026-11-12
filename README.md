@@ -131,7 +131,9 @@ Deliberately small:
   character, and any skill name can carry an integer rating.
 - `2d6 + attribute + skill + situational modifier` against a difficulty. The
   result is `failure`, `mixed_success`, or `success`.
-- Health, stress, supplies, currency, conditions, inventory quantities.
+- Health, stress, supplies, currency, conditions, inventory quantities. Health
+  loss is concrete; at 0 the character is incapacitated rather than arbitrarily
+  killed. Stress represents fear, guilt, and exhaustion.
 - Named clocks with segments and triggers.
 - World time in minutes, with a generated starting time.
 - Factions, NPC goals/plans/knowledge, and canonical facts with GM/player visibility.

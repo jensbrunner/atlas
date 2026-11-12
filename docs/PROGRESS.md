@@ -162,6 +162,9 @@ Live OpenAI smoke test (GPT-6 Luna):
   produced no duplicate changes.
 - One live world turn took 28.7 s and advanced hidden and visible clocks; the
   audit returned zero findings in 1.8 s.
+- A risky climb ended in a failed roll, reduced health 6→5, advanced a hidden
+  slope clock, moved the scene, and left the character stranded with a live
+  consequence instead of killing them.
 - A streamed live turn reported `reading → roll → advance_time → reveal_location →
   set_scene → update_npc → saving → done` in 38.1 s and committed the final
   result with a successful roll and new discovery.
