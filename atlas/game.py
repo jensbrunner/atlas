@@ -273,13 +273,13 @@ class CampaignService:
         haystack = narration.casefold()
         protected: list[str] = []
         for fact in state.world.facts.values():
-            if fact.visibility == "gm" and len(fact.text.strip()) >= 16:
+            if fact.visibility == "gm" and len(fact.text.strip()) >= 8:
                 protected.append(fact.text.strip())
         for body in (state.world_body, *state.npc_bodies.values()):
             blocks = extract_gm_block_text(body)
             for line in blocks.replace("<!-- gm -->", "").replace("<!-- /gm -->", "").splitlines():
                 cleaned = line.strip()
-                if len(cleaned) >= 24:
+                if len(cleaned) >= 12:
                     protected.append(cleaned)
 
         for secret in protected:

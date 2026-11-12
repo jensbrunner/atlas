@@ -32,6 +32,22 @@ def test_unrepaired_leak_is_rejected(tmp_path: Path) -> None:
     assert not (reloaded.root / "turns" / "0001.md").exists()
 
 
+def test_short_hidden_fact_is_still_protected(tmp_path: Path) -> None:
+    payload = seed_payload()
+    payload["facts"][0]["text"] = "The reeve lies."
+    payload["facts"][0]["visibility"] = "gm"
+    provider = fake_provider(seed=payload)
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+    provider.replies.append(AgentReply(text="The reeve lies."))
+    provider.replies.append(AgentReply(text="The reeve lies."))
+
+    with pytest.raises(LeakDetected):
+        service.play_turn(state.meta.id, "ask directly")
+
+    assert service.get(state.meta.id).meta.turn_count == 0
+
+
 def test_leak_is_repaired_before_commit(tmp_path: Path) -> None:
     provider = fake_provider()
     service = make_service(tmp_path, provider=provider)

@@ -88,7 +88,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 70 passed |
+| `uv run pytest -q` | 71 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 65 files already formatted |
 | `uv run mypy` | no issues in 55 source files |
@@ -111,6 +111,7 @@ network calls and need no credentials. Coverage includes:
 - offline/live configuration gates, default Luna models, key requirements;
 - multi-turn state carry-over, time, inventory, rolls, journal, turn files;
 - hidden-fact leak rejection with no turn committed;
+- short hidden facts remain protected;
 - leak repair before commit, and repair that reveals a fact instead;
 - hidden-name leaks matched on word boundaries, not inside ordinary words;
 - leak errors never echo the protected text;
