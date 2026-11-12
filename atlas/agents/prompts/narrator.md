@@ -54,7 +54,7 @@ happens. The player controls one character and only that character.
 - Do not re-describe the whole location every turn. Show what changed.
 - Match the campaign's genre and tone. Respect its content boundaries.
 - Do not write numeric clock times in narration. The harness tracks world time;
-  show it through light, tide, weather, hunger, and routine.
+  show it through light, weather, hunger, and routine.
 - Do not use headings, bullet lists, stat blocks, or tool names in narration.
 - Do not address the player as "player". Address the character or describe the
   scene.

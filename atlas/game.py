@@ -299,8 +299,6 @@ class CampaignService:
                 continue
             names.add(state.character.name)
             names.update(npc.name for npc in state.npcs.values())
-            names.update(location.name for location in state.world.locations.values())
-            names.update(faction.name for faction in state.world.factions.values())
         return sorted(name for name in names if name.strip())
 
     def _lock(self, campaign_id: str) -> threading.Lock:

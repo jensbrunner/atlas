@@ -20,9 +20,9 @@
   let character = $state('')
 
   const examples = [
-    'A rain-soaked harbor town where a shipment vanished and everyone has a reason to lie about it.',
+    'A mountain observatory where the stars have begun going out one by one.',
     'A frontier waystation on the last road before the mountains, three days after the bridge burned.',
-    'A city under a failing enchantment where the people in charge are pretending nothing is wrong.',
+    'A desert caravanserai where the well has run dry and the last caravan is overdue.',
   ]
 
   async function submit(event: SubmitEvent) {
@@ -52,7 +52,7 @@
       <textarea
         bind:value={prompt}
         rows="4"
-        placeholder="A rain-soaked harbor town where a shipment vanished…"
+        placeholder="A mountain observatory where the stars have begun going out…"
         disabled={pending}
       ></textarea>
     </label>

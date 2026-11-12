@@ -22,12 +22,14 @@ solution.
   with sensory specificity and no stat blocks. Set `start_minute` to a plausible
   time for the scene, in minutes after midnight (e.g. 1140 for 19:00). Do not
   write numeric clock times into the opening prose; show the hour through light,
-  tide, weather, or routine.
+  weather, activity, or routine.
 
 Do not include cults, undead, prophecy, chosen-one plots, mysterious bells, or a
-single mandatory resolution. Avoid opening on a tavern. Make the stakes local and
-material. Do not write the player character's dialogue or decisions in the
-opening.
+single mandatory resolution. Avoid opening on a tavern. Choose geography from the
+premise; if the premise leaves it open, choose a specific inland, mountain, desert,
+forest, or city-interior setting, and vary it across campaigns. Make the stakes
+local and material. Do not write the player character's dialogue or decisions in
+the opening.
 
 Use stable lowercase ids with underscores for locations, factions, clocks, NPCs,
 and facts. Each NPC's `knows` array must contain fact ids from your `facts` array

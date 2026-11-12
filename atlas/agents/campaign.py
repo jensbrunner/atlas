@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -180,6 +181,87 @@ def _validation_summary(exc: ValidationError) -> str:
     return "\n".join(lines)
 
 
+_WATER_PROMPT_WORDS = {
+    "harbor",
+    "harbour",
+    "tide",
+    "tidal",
+    "tideglass",
+    "dock",
+    "sluice",
+    "wharf",
+    "quay",
+    "waterfront",
+    "waterworks",
+    "floodgate",
+    "canal",
+    "barge",
+    "river",
+    "coast",
+    "sea",
+    "lake",
+    "marsh",
+    "flood",
+    "port",
+    "pier",
+    "ferry",
+    "fishing",
+}
+
+_WATER_SEED_WORDS = {
+    "harbor",
+    "harbour",
+    "tide",
+    "tideglass",
+    "tidal",
+    "dock",
+    "sluice",
+    "wharf",
+    "quay",
+    "waterfront",
+    "floodgate",
+    "canal",
+    "barge",
+    "mudflat",
+    "waterworks",
+}
+
+
+def _mentions(text: str, words: set[str]) -> bool:
+    lowered = text.casefold()
+    return any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in words)
+
+
+def _water_default(seed: CampaignSeed, request: CampaignRequest) -> bool:
+    """Identify the model's common default to a water-infrastructure opening."""
+
+    prompt = " ".join(
+        [request.title, request.prompt, request.genre, request.tone, request.character]
+    )
+    if _mentions(prompt, _WATER_PROMPT_WORDS):
+        return False
+    text = " ".join(
+        [
+            seed.title,
+            seed.premise,
+            seed.opening_scene,
+            *(location.name for location in seed.locations),
+            *(location.description for location in seed.locations),
+            *(faction.name for faction in seed.factions),
+        ]
+    )
+    return _mentions(text, _WATER_SEED_WORDS)
+
+
+_WATER_RETRY = (
+    "The previous campaign defaulted to water infrastructure or a waterfront. "
+    "Write a different campaign in a non-water setting. Choose an inland, mountain, "
+    "desert, forest, city-interior, workshop, archive, theatre, mine, or similar "
+    "place. Do not use tides, harbors, docks, sluices, canals, floodgates, barges, "
+    "or waterfronts."
+)
+
+
 class CampaignGenerator:
     def __init__(self, provider: Provider, settings: Settings) -> None:
         self.provider = provider
@@ -207,31 +289,64 @@ class CampaignGenerator:
         user_input = "\n".join(lines)
         total_usage = Usage()
         last_error: ValidationError | None = None
-        for attempt in range(2):
+        retry_issue: str | None = None
+        theme_retry = False
+        for _ in range(3):
             prompt = user_input
-            if attempt and last_error is not None:
-                prompt = (
-                    f"{user_input}\n\n"
+            corrections: list[str] = []
+            if theme_retry:
+                corrections.append(_WATER_RETRY)
+            if retry_issue is not None:
+                corrections.append(retry_issue)
+            if last_error is not None:
+                corrections.append(
                     "Your previous submission failed validation. Fix exactly these "
                     f"problems and resubmit the complete campaign:\n"
                     f"{_validation_summary(last_error)}"
                 )
-            payload, usage = self.provider.generate_structured(
-                StructuredRequest(
-                    model=self.settings.campaign_model,
-                    instructions=load_prompt("campaign"),
-                    user_input=prompt,
-                    tool_name="submit_campaign",
-                    tool_description="Submit a complete, ready-to-play campaign seed.",
-                    parameters=CAMPAIGN_PARAMETERS,
-                    max_output_tokens=6_000,
+            if corrections:
+                prompt = f"{user_input}\n\n" + "\n\n".join(corrections)
+
+            try:
+                payload, usage = self.provider.generate_structured(
+                    StructuredRequest(
+                        model=self.settings.campaign_model,
+                        instructions=load_prompt("campaign"),
+                        user_input=prompt,
+                        tool_name="submit_campaign",
+                        tool_description="Submit a complete, ready-to-play campaign seed.",
+                        parameters=CAMPAIGN_PARAMETERS,
+                        max_output_tokens=10_000,
+                    )
                 )
-            )
+            except AgentError as exc:
+                if "invalid structured JSON" not in str(exc):
+                    raise
+                retry_issue = (
+                    "Your previous response was incomplete or invalid JSON. Return a "
+                    "complete campaign payload. Keep prose and lists compact so every "
+                    "required field is fully closed."
+                )
+                continue
             total_usage = add_usage(total_usage, usage)
             try:
-                return CampaignSeed.model_validate(payload), total_usage
+                seed = CampaignSeed.model_validate(payload)
             except ValidationError as exc:
                 last_error = exc
+                continue
 
-        summary = _validation_summary(last_error) if last_error else "unknown error"
-        raise AgentError("campaign generation failed validation after two attempts:\n" + summary)
+            if _water_default(seed, request) and not theme_retry:
+                theme_retry = True
+                last_error = None
+                retry_issue = None
+                continue
+            return seed, total_usage
+
+        if last_error is not None:
+            summary = _validation_summary(last_error)
+            raise AgentError(
+                "campaign generation failed validation after three attempts:\n" + summary
+            )
+        raise AgentError(
+            "campaign generation returned incomplete structured output after three attempts"
+        )

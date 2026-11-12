@@ -153,7 +153,7 @@ def test_second_campaign_is_told_to_avoid_existing_names(tmp_path: Path) -> None
 
     second_request = provider.structured_requests[1].user_input
     assert "Mara the Keeper" in second_request
-    assert "Market Square" in second_request
+    assert "Market Square" not in second_request
 
 
 def test_store_rejects_path_traversal_and_partial_campaigns(tmp_path: Path) -> None:

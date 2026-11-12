@@ -153,10 +153,12 @@ sheets remain GM-side. This keeps social inference and mystery in the fiction.
 
 ## ADR-021 — Avoid names from previous campaigns
 
-Accepted. Campaign generation receives the character, NPC, location, and faction
-names already present in the data directory and is told not to reuse them. This
-keeps a stable of local campaigns from feeling like the same cast under different
-titles.
+Accepted. Campaign generation receives the character and NPC names already present
+in the data directory and is told not to reuse them. Place and faction names are
+deliberately not passed as an avoid-list, because that can prime the model toward
+the previous campaign's geography. This keeps a stable of local campaigns from
+feeling like the same cast without steering every new setting toward the last
+one's theme.
 
 ## ADR-022 — Stream turn progress, not prose
 
@@ -213,6 +215,15 @@ the configured turn interval (default 3) or in-world minute threshold (default
 120) is reached, or when the narrator requests it. The manual "World now" action
 is an override, not the normal path. A failed auto world turn is swallowed so a
 committed player turn is never erased.
+
+## ADR-029 — Do not default to waterfront campaigns
+
+Accepted. The campaign prompt no longer offers "tide" as a time cue, the UI
+examples are no longer harbor-led, and place/faction names are not fed back as an
+avoid-list. If an unnamed or non-water premise still produces harbor/dock/sluice
+material, the generator retries once with a non-water setting instruction. User
+prompts that explicitly ask for water are left alone. This keeps generated
+settings varied instead of converging on the same coastal pressure scene.
 
 ## Deferred decisions
 
