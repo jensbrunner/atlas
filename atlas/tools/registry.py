@@ -10,6 +10,7 @@ from atlas.tools.context import ToolContext, ToolError
 from atlas.tools.dice import handle_roll
 from atlas.tools.facts import handle_append_journal, handle_record_fact, handle_reveal_fact
 from atlas.tools.inventory import handle_patch_inventory
+from atlas.tools.lookup import handle_lookup_canon
 from atlas.tools.npcs import (
     handle_create_npc,
     handle_reveal_faction,
@@ -266,6 +267,25 @@ SPECS: list[ToolSpec] = [
             ["location"],
         ),
         handler=handle_set_scene,
+    ),
+    ToolSpec(
+        name="lookup_canon",
+        description=(
+            "Search the full campaign canon for an omitted person, place, faction, "
+            "fact, or clock. Use this before referencing something not in the packet."
+        ),
+        parameters=_object(
+            {
+                "query": {"type": "string", "description": "A name or distinctive keywords."},
+                "kind": {
+                    "type": "string",
+                    "enum": ["any", "npc", "location", "faction", "fact", "clock"],
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 12},
+            },
+            ["query"],
+        ),
+        handler=handle_lookup_canon,
     ),
     ToolSpec(
         name="create_location",

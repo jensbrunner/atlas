@@ -30,7 +30,8 @@ atlas/
   config.py            env settings; live calls are opt-in
   app.py               FastAPI factory, CORS, typed errors, static SPA serving
   game.py              CampaignService: generation, turns, world turns, audit
-  context.py           budgeted GM packet assembly
+  context.py           retrieval-selected GM packet assembly
+  retrieval.py         BM25 index and relevance selection
   errors.py            typed harness errors
   ids.py               ids and slugs
 
@@ -65,6 +66,7 @@ atlas/
     time.py            world time
     facts.py           facts, reveals, journal
     npcs.py            NPCs and factions
+    lookup.py          lookup_canon over omitted canon
     world.py           scene changes, world-turn requests
 
 web/
@@ -80,8 +82,9 @@ web/
    `status`/`tool` SSE events before the final `done` result.
 2. Acquire the per-campaign in-process lock.
 3. Load the campaign directory into a `CampaignState` in memory.
-4. Build the GM packet: campaign premise, character, world, NPCs, clocks, facts,
-   and recent turns, within a character budget.
+4. Build the GM packet. A local BM25 index selects present NPCs, the current
+   location, relevant people/places/factions/facts, known facts of selected NPCs,
+   and active clocks. Omitted canon is noted and available through `lookup_canon`.
 5. Run the narrator loop. Each provider call may return tool calls; tools mutate
    the in-memory state and return results to the model. Identical tool effects are
    ignored within the turn, and the loop has a wall-clock deadline.
@@ -116,6 +119,18 @@ Structured fields are YAML frontmatter validated by Pydantic. Prose may contain
 `<!-- gm --> ... <!-- /gm -->` blocks. Facts use `visibility: gm|player`; NPCs
 and locations use `player_known`; clocks use `visibility`.
 
+## Context selection
+
+`atlas/retrieval.py` builds a derived BM25 index over NPCs, locations, factions,
+facts, and clocks. The query combines the player's action, current location,
+present cast, and last narration. Scores get a name/phrase boost and a relevance
+cutoff; present entities, facts known by selected NPCs, their locations, and
+active clocks are forced into the packet. See [RETRIEVAL.md](RETRIEVAL.md).
+
+The prompt states the selected-vs-total counts and tells the narrator that
+omitted canon is binding. `lookup_canon` returns compact records for anything the
+narrator needs beyond the packet. World and audit modes use wider quotas.
+
 ## Views
 
 `atlas/state/render.py` derives both views from the same `CampaignState`:
@@ -148,6 +163,7 @@ round-trip, not just the visible prose.
 | `update_npc` / `update_faction` | location, attitude, goals, plans, knowledge, resources |
 | `create_npc` / `create_location` | introduce new people and places |
 | `reveal_npc` / `reveal_location` / `reveal_faction` | mark discoveries |
+| `lookup_canon` | search omitted canon by name or keyword |
 | `record_fact` / `reveal_fact` | canonical facts and secrets |
 | `append_journal` | short player-facing journal note |
 | `set_scene` | move scene, reveal the destination, update location/situation |
@@ -168,7 +184,9 @@ known entity references, monotonic world time, valid fact/NPC references.
   volunteered fields.
 - The world agent is invoked only manually or when the narrator requests it.
 - The auditor is invoked only on demand and returns structured findings.
-- Recent turns and total prompt characters are budgeted.
+- Recent turns and total prompt characters are budgeted. A relevance-selected
+  packet plus `lookup_canon` keeps context proportional to scene needs, not canon
+  size.
 - Token usage is stored in every turn file and returned by the API. The OpenAI
   client uses `ATLAS_REQUEST_TIMEOUT_SECONDS` and no hidden SDK retries.
 - Startup time is stored as `world_time_minutes`; the generator chooses a

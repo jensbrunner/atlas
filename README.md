@@ -31,6 +31,10 @@ no story branches in the engine, and no database.
   facts stay GM-side.
 - A Usage button shows per-campaign input/output tokens, per-turn breakdown,
   models, and estimated cost.
+- Only a relevant slice of canon is sent to the narrator. A local BM25 index
+  selects the present cast, nearby places, known facts, and query-relevant
+  material; the narrator can call `lookup_canon` for anything omitted. See
+  [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
 - The world can evolve offscreen through a world agent, and a continuity auditor
   can review the canon without rewriting it.
 
@@ -155,11 +159,13 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
   asks for an offscreen turn. It does not narrate the player's scene.
 - **Continuity auditor:** on demand. Advisory only; it has no write tools.
 
-Context is assembled from the GM packet with recent-turn and character budgets.
-Every turn records token usage. Set `ATLAS_INPUT_USD_PER_MILLION` and
-`ATLAS_OUTPUT_USD_PER_MILLION` to price tokens; `ATLAS_SESSION_USD_LIMIT` then
-stops a session that exceeds the configured estimate. With the default zero
-rates, cost estimates stay at zero.
+Context is selected from the GM packet with a local BM25 index plus scene boosts
+(present NPCs, current location, NPC knowledge, active clocks). The narrator can
+call `lookup_canon` for omitted material. Recent turns and total prompt
+characters are budgeted. Every turn records token usage. Set
+`ATLAS_INPUT_USD_PER_MILLION` and `ATLAS_OUTPUT_USD_PER_MILLION` to price tokens;
+`ATLAS_SESSION_USD_LIMIT` then stops a session that exceeds the configured
+estimate. With the default zero rates, cost estimates stay at zero.
 
 ## HTTP API
 
@@ -218,4 +224,6 @@ network calls and requires no credentials.
   narrator-requested.
 - Semantic secret-leak detection. The check is verbatim matching against GM fact
   text, GM prose, and hidden names, followed by one narrator repair pass.
+- Semantic or vector retrieval. Current retrieval is lexical BM25 plus explicit
+  `lookup_canon` calls.
 - Multi-user or remote access. This is a localhost, single-user harness.

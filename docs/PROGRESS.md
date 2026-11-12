@@ -52,14 +52,27 @@ them.
   `ERROR: ...` to the model without aborting the turn. Identical tool effects are
   suppressed within a turn so a repeated loop cannot double-charge state.
 
+### Context retrieval
+
+- A derived BM25 index ranks NPCs, locations, factions, facts, and clocks without
+  sending all canon to the model.
+- The query combines the action, current location, present cast, and last
+  narration. Present entities, NPC-known facts, selected NPC locations, and active
+  clocks are always included.
+- Narrator/world/audit use different quotas. The prompt reports selected-vs-total
+  counts and says omitted canon is binding.
+- `lookup_canon` searches the full state on demand for omitted people, places,
+  factions, facts, or clocks.
+
 ### Agents
 
 - Campaign generator: forced structured tool call (`submit_campaign`), tolerant of
   volunteered extra fields, retried once with validation feedback. Assigns fact
   ids, resolves NPC knowledge given as fact prose, and avoids names used in
   previous campaigns.
-- Narrator: one tool loop per player turn, budgeted GM packet, recent-turn window,
-  configurable model, wall-clock deadline, and one leak-repair pass.
+- Narrator: one tool loop per player turn, retrieval-selected GM packet,
+  recent-turn window, configurable model, wall-clock deadline, and one leak-repair
+  pass.
 - Player-view privacy: NPC attitudes/plans and faction goals/stances never reach
   the browser.
 - World agent: offscreen evolution on manual request or narrator request; updates
@@ -89,10 +102,10 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 74 passed |
+| `uv run pytest -q` | 78 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 66 files already formatted |
-| `uv run mypy` | no issues in 56 source files |
+| `uv run ruff format --check .` | 70 files already formatted |
+| `uv run mypy` | no issues in 59 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
@@ -130,6 +143,9 @@ network calls and need no credentials. Coverage includes:
 - context truncation preserving the player action and narrator instructions, plus
   character background, campaign notes, present NPCs, and time phase reaching the
   packet;
+- BM25 retrieval selecting relevant people/facts out of 120 NPCs and 200 facts,
+  excluding unrelated noise, keeping the packet bounded, and finding omitted canon
+  through `lookup_canon`;
 - OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
   structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an
@@ -173,6 +189,9 @@ Live OpenAI smoke test (GPT-6 Luna):
   result with a successful roll and new discovery.
 - The usage endpoint reported 185,469 input / 15,117 output tokens across eight
   recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
+- Synthetic retrieval stress test: 1,002 NPCs and 5,003 facts produced a
+  3,067-character packet with 2 NPCs and 3 facts in ~15 ms, including the relevant
+  entity and excluding unrelated noise.
 - Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations
@@ -181,8 +200,11 @@ Live OpenAI smoke test (GPT-6 Luna):
   committed turn; live turns have taken roughly 17–55 s.
 - No campaign export/import.
 - World turns are manual or narrator-requested; no time-threshold automation.
-- Context is a recent-turn window plus budgets, not retrieval over long
-  campaigns.
+- Retrieval is lexical BM25, not semantic. Synonyms may miss; names and
+  `lookup_canon` compensate. The index is rebuilt each turn, and state loading
+  still reads the full campaign directory.
+- Audit uses a wider retrieved packet, not necessarily every fact; it is a
+  continuity aid, not a proof.
 - Secret-leak detection is verbatim matching against GM fact text, GM prose
   blocks, and hidden names, followed by one repair pass. It is a backstop, not a
   semantic guarantee.
@@ -200,5 +222,5 @@ Live OpenAI smoke test (GPT-6 Luna):
 3. Add campaign export/import.
 4. Replace verbatim leak matching with a model-side redaction pass or embedding
    similarity, then keep the verbatim check as a fast path.
-5. Add retrieval or rolling recap over old turns once campaigns run long enough
-   to exceed the context budget.
+5. Add a persisted or vector index and a rolling recap for very large worlds;
+   current retrieval rebuilds in memory from markdown each turn.

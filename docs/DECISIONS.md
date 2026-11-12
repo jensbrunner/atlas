@@ -175,12 +175,27 @@ Input tokens include the GM packet and every tool round-trip, so the totals are
 larger than the visible narration. Cost remains optional until per-million rates
 are configured.
 
+## ADR-024 — Local BM25 retrieval selects context
+
+Accepted. The narrator does not receive all canon. `atlas/retrieval.py` builds a
+derived BM25 index over NPCs, locations, factions, facts, and clocks. The query
+combines the action, current location, present cast, and last narration. Ranking
+has a name boost and a relative cutoff; scene entities and NPC knowledge are
+forced in. The index is disposable and rebuilt from canonical markdown.
+
+## ADR-025 — lookup_canon is the escape hatch
+
+Accepted. Omitted canon remains binding. The prompt tells the narrator how many
+entities are in the packet versus canon, and `lookup_canon` searches the full
+state on demand. This keeps normal context small without making distant canon
+inaccessible. The tool is model-facing and costs tokens only when called.
+
 ## Deferred decisions
 
 - Token-level narration streaming.
 - Export/import of campaign directories.
 - Automatic world-turn thresholds based on world time.
-- Retrieval over long campaigns instead of a recent-turn window.
+- Semantic/vector retrieval and a persisted index for very large worlds.
 - Semantic secret-leak detection and model-side redaction.
 - Bundled per-model price presets for accurate USD accounting.
 - Multi-user or remote hosting.

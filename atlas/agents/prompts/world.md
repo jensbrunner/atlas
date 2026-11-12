@@ -17,5 +17,6 @@ elsewhere or while time passes.
 - Do not resolve the player character's situation for them.
 - Do not kill, incapacitate, or irrevocably change the player character offscreen.
 
-Use tools for every change. Finish with a short GM-facing summary of what moved
-and why. Do not write player-facing prose.
+Use tools for every change. If the packet omits a person, place, faction, fact, or
+clock you need, call `lookup_canon` before acting on it. Finish with a short
+GM-facing summary of what moved and why. Do not write player-facing prose.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from atlas.retrieval import Selection, select_context
 from atlas.state.schemas import CampaignState
 from atlas.state.store import format_world_time, time_of_day
 
@@ -83,31 +84,60 @@ def _npc_sheet(state: CampaignState, npc_id: str) -> str:
     return "\n".join(lines)
 
 
-def world_section(state: CampaignState) -> str:
+def world_section(state: CampaignState, selection: Selection | None = None) -> str:
     world = state.world
+    location_ids = selection.locations if selection else list(world.locations)
+    faction_ids = selection.factions if selection else list(world.factions)
+    clock_ids = selection.clocks if selection else list(world.clocks)
+    fact_ids = selection.facts if selection else list(world.facts)
+
     locations = "\n".join(
-        f"- {slug} — {loc.name} (player-known: {loc.player_known}): {loc.description}"
-        for slug, loc in world.locations.items()
+        f"- {slug} — {world.locations[slug].name} "
+        f"(player-known: {world.locations[slug].player_known}): "
+        f"{world.locations[slug].description}"
+        for slug in location_ids
+        if slug in world.locations
     )
     factions = "\n".join(
         (
-            f"- {slug} — {faction.name} (player-known: {faction.player_known}); "
-            f"goal: {faction.goal}; stance: {faction.stance}; resources: {faction.resources}"
+            f"- {slug} — {world.factions[slug].name} "
+            f"(player-known: {world.factions[slug].player_known}); "
+            f"goal: {world.factions[slug].goal}; stance: {world.factions[slug].stance}; "
+            f"resources: {world.factions[slug].resources}"
         )
-        for slug, faction in world.factions.items()
+        for slug in faction_ids
+        if slug in world.factions
     )
     clocks = "\n".join(
         (
-            f"- {slug} — {clock.name}: {clock.filled}/{clock.segments} "
-            f"(visibility: {clock.visibility}); trigger: {clock.trigger}"
+            f"- {slug} — {world.clocks[slug].name}: "
+            f"{world.clocks[slug].filled}/{world.clocks[slug].segments} "
+            f"(visibility: {world.clocks[slug].visibility}); "
+            f"trigger: {world.clocks[slug].trigger}"
         )
-        for slug, clock in world.clocks.items()
+        for slug in clock_ids
+        if slug in world.clocks
     )
     facts = "\n".join(
-        f"- {fact.id} [{fact.visibility}] {fact.text}" for fact in world.facts.values()
+        f"- {fact_id} [{world.facts[fact_id].visibility}] {world.facts[fact_id].text}"
+        for fact_id in fact_ids
+        if fact_id in world.facts
     )
+
+    packet_npcs = (
+        selection.npcs
+        if selection
+        else [
+            npc_id for npc_id, npc in state.npcs.items() if npc.location == world.current_location
+        ]
+    )
+    present = [
+        state.npcs[npc_id].name
+        for npc_id in packet_npcs
+        if npc_id in state.npcs and state.npcs[npc_id].location == world.current_location
+    ]
+    all_present = [npc for npc in state.npcs.values() if npc.location == world.current_location]
     location = world.locations.get(world.current_location)
-    present = [npc.name for npc in state.npcs.values() if npc.location == world.current_location]
     lines = [
         f"Current location: {world.current_location}" + (f" — {location.name}" if location else ""),
         f"World time: {format_world_time(state.meta.world_time_minutes)} "
@@ -115,19 +145,38 @@ def world_section(state: CampaignState) -> str:
         f"{state.meta.world_time_minutes} minutes)",
         f"NPCs present: {', '.join(present) if present else 'none'}",
         f"Situation: {world.situation}",
-        "",
-        "Locations:",
-        locations or "- none",
-        "",
-        "Factions:",
-        factions or "- none",
-        "",
-        "Clocks:",
-        clocks or "- none",
-        "",
-        "Facts (GM canon; 'gm' facts are secret):",
-        facts or "- none",
     ]
+    if selection is not None:
+        lines.extend(
+            [
+                f"Context packet: {selection.packet_line()}.",
+                "Canon not listed above is still binding. If you need an omitted "
+                "person, place, faction, fact, or clock, call `lookup_canon` with a "
+                "name or keyword before using it. Do not contradict omitted canon.",
+            ]
+        )
+        if len(all_present) > len(present):
+            lines.append(
+                f"Other people are present but omitted from the packet: "
+                f"{len(all_present) - len(present)}. Use `lookup_canon` if the scene "
+                "turns to them."
+            )
+    lines.extend(
+        [
+            "",
+            "Locations:",
+            locations or "- none",
+            "",
+            "Factions:",
+            factions or "- none",
+            "",
+            "Clocks:",
+            clocks or "- none",
+            "",
+            "Facts (GM canon; 'gm' facts are secret):",
+            facts or "- none",
+        ]
+    )
     if state.world_body.strip():
         lines.extend(["", "World notes:", _clip(state.world_body, 4_000)])
     return "\n".join(lines)
@@ -177,8 +226,9 @@ def build_turn_prompt(
     recent_turn_limit: int = 6,
     char_budget: int = 48_000,
 ) -> str:
+    selection = select_context(state, action, mode="narrator")
     npcs = (
-        "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs))
+        "\n\n".join(_npc_sheet(state, npc_id) for npc_id in selection.npcs if npc_id in state.npcs)
         or "No NPCs are defined yet."
     )
     head = "\n".join(
@@ -190,7 +240,7 @@ def build_turn_prompt(
             character_sheet(state),
             "",
             "# World",
-            world_section(state),
+            world_section(state, selection),
             "",
             "# NPCs (GM view)",
             npcs,
@@ -216,6 +266,11 @@ def build_turn_prompt(
 
 
 def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 32_000) -> str:
+    selection = select_context(
+        state,
+        f"{reason} {state.turns[-1].narration[:800] if state.turns else ''}",
+        mode="world",
+    )
     head = "\n".join(
         [
             "# World evolution request",
@@ -225,10 +280,13 @@ def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 
             campaign_section(state),
             "",
             "# World",
-            world_section(state),
+            world_section(state, selection),
             "",
             "# NPCs (GM view)",
-            "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
+            "\n\n".join(
+                _npc_sheet(state, npc_id) for npc_id in selection.npcs if npc_id in state.npcs
+            )
+            or "- none",
             "",
             "# Recent turns",
             recent_turns(state, 4) or "No turns yet.",
@@ -244,6 +302,11 @@ def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 
 
 
 def build_audit_prompt(state: CampaignState, *, char_budget: int = 40_000) -> str:
+    selection = select_context(
+        state,
+        state.turns[-1].narration[:1_500] if state.turns else "continuity audit",
+        mode="audit",
+    )
     head = "\n".join(
         [
             "# Continuity audit",
@@ -253,10 +316,13 @@ def build_audit_prompt(state: CampaignState, *, char_budget: int = 40_000) -> st
             character_sheet(state),
             "",
             "# World canon",
-            world_section(state),
+            world_section(state, selection),
             "",
             "# NPCs",
-            "\n\n".join(_npc_sheet(state, npc_id) for npc_id in sorted(state.npcs)) or "- none",
+            "\n\n".join(
+                _npc_sheet(state, npc_id) for npc_id in selection.npcs if npc_id in state.npcs
+            )
+            or "- none",
             "",
             "# Recent turns",
             recent_turns(state, 12) or "No turns yet.",
