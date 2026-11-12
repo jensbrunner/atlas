@@ -128,7 +128,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     demo = sub.add_parser("demo", help="create and play a campaign with the offline fake provider")
     demo.add_argument("--title", default="")
-    demo.add_argument("--prompt", default="A rain-soaked harbor town with a missing shipment.")
+    demo.add_argument(
+        "--prompt",
+        default="A remote community with a problem no one will name.",
+    )
     demo.add_argument("--action", default="look around")
     demo.set_defaults(func=cmd_demo)
 

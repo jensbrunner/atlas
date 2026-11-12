@@ -23,74 +23,6 @@ class SequenceProvider:
         raise AssertionError("campaign generation should not use complete")
 
 
-def _mountain_payload() -> dict[str, Any]:
-    payload = seed_payload()
-    payload.update(
-        {
-            "title": "The High Observatory",
-            "premise": (
-                "A mountain observatory where the winter crew has lost contact with the valley."
-            ),
-            "opening_scene": "At dusk, snow is banked against the observatory doors.",
-            "current_location": "observatory",
-            "locations": [
-                {
-                    "id": "observatory",
-                    "name": "The Observatory",
-                    "description": "A stone dome above the snow line.",
-                    "player_known": True,
-                }
-            ],
-            "factions": [],
-            "npcs": [
-                {
-                    "id": "steward",
-                    "name": "Ilse Voss",
-                    "location": "observatory",
-                    "player_known": True,
-                    "goals": ["Keep the crew alive"],
-                }
-            ],
-            "facts": [
-                {
-                    "id": "fact_signal",
-                    "text": "The valley signal has been silent for three days.",
-                    "visibility": "gm",
-                },
-                {
-                    "id": "fact_snow",
-                    "text": "The pass is closed by snow.",
-                    "visibility": "player",
-                },
-            ],
-        }
-    )
-    return payload
-
-
-def test_empty_premise_retries_a_water_default() -> None:
-    provider = SequenceProvider([seed_payload(), _mountain_payload()])
-    generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
-
-    seed, usage = generator.generate(CampaignRequest())
-
-    assert seed.title == "The High Observatory"
-    assert len(provider.requests) == 2
-    assert "water infrastructure" in provider.requests[1].user_input
-    assert usage.input_tokens == 2
-
-
-def test_explicit_water_premise_is_not_retried() -> None:
-    provider = SequenceProvider([seed_payload()])
-    generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
-
-    seed, usage = generator.generate(CampaignRequest(prompt="A harbor mystery."))
-
-    assert seed.title
-    assert len(provider.requests) == 1
-    assert usage.input_tokens == 1
-
-
 def test_character_hint_reaches_the_generator() -> None:
     provider = SequenceProvider([seed_payload()])
     generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
@@ -123,7 +55,7 @@ def test_generation_retries_once_with_the_validation_error() -> None:
     assert usage.output_tokens == 2
 
 
-def test_generation_reports_validation_failure_after_three_attempts() -> None:
+def test_generation_reports_validation_failure_after_two_attempts() -> None:
     import pytest
 
     from atlas.agents.types import AgentError
@@ -132,10 +64,9 @@ def test_generation_reports_validation_failure_after_three_attempts() -> None:
         [
             {"title": "Broken", "opening_scene": "Rain."},
             {"title": "Still broken", "opening_scene": "Rain."},
-            {"title": "Broken again", "opening_scene": "Rain."},
         ]
     )
     generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
 
-    with pytest.raises(AgentError, match="failed validation after three attempts"):
+    with pytest.raises(AgentError, match="failed validation after two attempts"):
         generator.generate(CampaignRequest(prompt="A harbor mystery."))

@@ -11,7 +11,7 @@ The useful part is a **persistent time anchor**, not a minute-by-minute clock.
 Cross-turn chronology matters for:
 
 - the journal and turn files;
-- deadlines and "before the tide" pressure;
+- deadlines and "before the storm" pressure;
 - offscreen world turns;
 - the UI showing whether it is dawn, evening, or the next day.
 
@@ -27,7 +27,7 @@ Use it for meaningful intervals, not routine conversation.
 - The tool rejects a second call in the same turn and tells the model to combine
   the elapsed time.
 - The prompt says time is an anchor, not a stopwatch.
-- Scene-level time is carried by prose ("by the time the tide turns", "the next
+- Scene-level time is carried by prose ("by the time the storm breaks", "the next
   morning"); the anchor is only updated when a meaningful interval passes.
 - Named clocks remain separate. They are **event pressure**, not wall time:
   `patch_clock` advances when the fiction earns it, not on a timer.

@@ -70,9 +70,8 @@ them.
 
 - Campaign generator: forced structured tool call (`submit_campaign`), tolerant of
   volunteered extra fields, retried once with validation feedback or incomplete
-  JSON. Assigns fact ids, resolves NPC knowledge given as fact prose, avoids names
-  used in previous campaigns, and retries a default waterfront/sluice opening when
-  the player did not ask for one.
+  JSON. Assigns fact ids and resolves NPC knowledge given as fact prose. Prompts
+  contain no setting examples, keyword blacklists, or name avoid-lists.
 - Narrator: one tool loop per player turn, retrieval-selected GM packet,
   recent-turn window, configurable model, wall-clock deadline, and one leak-repair
   pass.
@@ -106,10 +105,10 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 90 passed |
+| `uv run pytest -q` | 85 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 74 files already formatted |
-| `uv run mypy` | no issues in 62 source files |
+| `uv run ruff format --check .` | 73 files already formatted |
+| `uv run mypy` | no issues in 61 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
@@ -145,9 +144,7 @@ network calls and need no credentials. Coverage includes:
 - automatic world turns after the configured player-turn interval;
 - auditor findings and empty findings;
 - campaign generation retry with validation feedback, failure after two tries,
-  a cross-campaign name avoid-list, and a character-concept hint;
-- explicit non-water prompt guidance and retry when an unnamed campaign defaults
-  to harbor/sluice/waterfront material;
+  and a character-concept hint;
 - context truncation preserving the player action and narrator instructions, plus
   character background, campaign notes, present NPCs, and time phase reaching the
   packet;
@@ -197,10 +194,6 @@ Live OpenAI smoke test (GPT-6 Luna):
 - A streamed live turn reported `reading → roll → advance_time → reveal_location →
   set_scene → update_npc → saving → done` in 38.1 s and committed the final
   result with a successful roll and new discovery.
-- A live empty-premise generation initially defaulted to a waterworks; after the
-  prompt/UI cleanup, with a water-default retry as a backstop, the same empty
-  premise produced *The Palehouse Night Firing*, an inland glassworks with no
-  water words.
 - The usage endpoint reported 185,469 input / 15,117 output tokens across eight
   recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
 - Usage costs now come from the built-in price table: the live 15,724 / 1,367

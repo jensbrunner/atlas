@@ -23,7 +23,8 @@ no story branches in the engine, and no database.
   invalid change leaves the files untouched.
 - The narrator can introduce new places and people, and reveal hidden ones when
   the fiction reaches them.
-- New campaigns are told to avoid names already used in your previous campaigns.
+- The campaign creation form starts empty: no example premises, setting lists, or
+  keyword steering.
 - If a draft leaks hidden material, the harness gives the narrator one repair
   pass: reveal what was genuinely discovered, or rewrite without it.
 - The server renders a player view by stripping GM-only material from the same
@@ -202,7 +203,7 @@ inspection only.
 
 ```bash
 uv run atlas list
-uv run atlas demo --prompt "A harbor town with a missing shipment."
+uv run atlas demo --prompt "A remote community with a problem no one will name."
 uv run atlas show <campaign-id>
 uv run atlas serve --port 8000
 ```

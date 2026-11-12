@@ -9,7 +9,7 @@ from atlas.agents.campaign import CampaignRequest
 from atlas.state.schemas import CampaignSeed
 from atlas.state.store import CampaignNotFound, CampaignStore, time_of_day
 from atlas.state.validate import validate_state
-from tests.support import fake_provider, make_service, seed_payload
+from tests.support import make_service, seed_payload
 
 
 def test_create_campaign_writes_markdown_and_opening(tmp_path: Path) -> None:
@@ -143,17 +143,6 @@ def test_player_view_hides_internal_attitudes_and_faction_goals(tmp_path: Path) 
     gm_rendered = str(gm["gm"])
     assert "secretly plans to betray" in gm_rendered
     assert "seize the harbor privately" in gm_rendered
-
-
-def test_second_campaign_is_told_to_avoid_existing_names(tmp_path: Path) -> None:
-    provider = fake_provider()
-    service = make_service(tmp_path, provider=provider)
-    service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
-    service.create_campaign(CampaignRequest(prompt="A mountain mystery."))
-
-    second_request = provider.structured_requests[1].user_input
-    assert "Mara the Keeper" in second_request
-    assert "Market Square" not in second_request
 
 
 def test_store_rejects_path_traversal_and_partial_campaigns(tmp_path: Path) -> None:

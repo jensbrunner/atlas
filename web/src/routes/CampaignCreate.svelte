@@ -19,12 +19,6 @@
   let tone = $state('')
   let character = $state('')
 
-  const examples = [
-    'A mountain observatory where the stars have begun going out one by one.',
-    'A frontier waystation on the last road before the mountains, three days after the bridge burned.',
-    'A desert caravanserai where the well has run dry and the last caravan is overdue.',
-  ]
-
   async function submit(event: SubmitEvent) {
     event.preventDefault()
     if (pending || !prompt.trim()) return
@@ -52,7 +46,7 @@
       <textarea
         bind:value={prompt}
         rows="4"
-        placeholder="A mountain observatory where the stars have begun going out…"
+        placeholder="Describe the situation you want to play"
         disabled={pending}
       ></textarea>
     </label>
@@ -61,7 +55,7 @@
       <span>Character concept (optional)</span>
       <input
         bind:value={character}
-        placeholder="A disgraced cartographer with more nerve than sense…"
+        placeholder="Optional"
         disabled={pending}
       />
     </label>
@@ -73,11 +67,11 @@
       </label>
       <label>
         <span>Genre (optional)</span>
-        <input bind:value={genre} placeholder="fantasy, noir, science fiction…" disabled={pending} />
+        <input bind:value={genre} placeholder="Optional" disabled={pending} />
       </label>
       <label>
         <span>Tone (optional)</span>
-        <input bind:value={tone} placeholder="grounded, wry, tense…" disabled={pending} />
+        <input bind:value={tone} placeholder="Optional" disabled={pending} />
       </label>
     </div>
 
@@ -94,15 +88,6 @@
       {/if}
     </div>
   </form>
-
-  <div class="examples">
-    <h4>Try one of these</h4>
-    {#each examples as example}
-      <button class="example" onclick={() => (prompt = example)} disabled={pending}>
-        {example}
-      </button>
-    {/each}
-  </div>
 </section>
 
 <style>
@@ -157,29 +142,6 @@
     align-items: center;
     gap: 1rem;
     margin-top: 0.5rem;
-  }
-
-  .examples {
-    margin-top: 3rem;
-    border-top: 1px solid var(--line);
-    padding-top: 1.5rem;
-  }
-
-  .examples h4 {
-    margin: 0 0 0.7rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-  }
-
-  .example {
-    display: block;
-    width: 100%;
-    text-align: left;
-    margin-bottom: 0.5rem;
-    font-family: var(--serif);
-    color: var(--muted);
   }
 
   @media (max-width: 700px) {

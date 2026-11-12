@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -181,87 +180,6 @@ def _validation_summary(exc: ValidationError) -> str:
     return "\n".join(lines)
 
 
-_WATER_PROMPT_WORDS = {
-    "harbor",
-    "harbour",
-    "tide",
-    "tidal",
-    "tideglass",
-    "dock",
-    "sluice",
-    "wharf",
-    "quay",
-    "waterfront",
-    "waterworks",
-    "floodgate",
-    "canal",
-    "barge",
-    "river",
-    "coast",
-    "sea",
-    "lake",
-    "marsh",
-    "flood",
-    "port",
-    "pier",
-    "ferry",
-    "fishing",
-}
-
-_WATER_SEED_WORDS = {
-    "harbor",
-    "harbour",
-    "tide",
-    "tideglass",
-    "tidal",
-    "dock",
-    "sluice",
-    "wharf",
-    "quay",
-    "waterfront",
-    "floodgate",
-    "canal",
-    "barge",
-    "mudflat",
-    "waterworks",
-}
-
-
-def _mentions(text: str, words: set[str]) -> bool:
-    lowered = text.casefold()
-    return any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in words)
-
-
-def _water_default(seed: CampaignSeed, request: CampaignRequest) -> bool:
-    """Identify the model's common default to a water-infrastructure opening."""
-
-    prompt = " ".join(
-        [request.title, request.prompt, request.genre, request.tone, request.character]
-    )
-    if _mentions(prompt, _WATER_PROMPT_WORDS):
-        return False
-    text = " ".join(
-        [
-            seed.title,
-            seed.premise,
-            seed.opening_scene,
-            *(location.name for location in seed.locations),
-            *(location.description for location in seed.locations),
-            *(faction.name for faction in seed.factions),
-        ]
-    )
-    return _mentions(text, _WATER_SEED_WORDS)
-
-
-_WATER_RETRY = (
-    "The previous campaign defaulted to water infrastructure or a waterfront. "
-    "Write a different campaign in a non-water setting. Choose an inland, mountain, "
-    "desert, forest, city-interior, workshop, archive, theatre, mine, or similar "
-    "place. Do not use tides, harbors, docks, sluices, canals, floodgates, barges, "
-    "or waterfronts."
-)
-
-
 class CampaignGenerator:
     def __init__(self, provider: Provider, settings: Settings) -> None:
         self.provider = provider
@@ -270,8 +188,6 @@ class CampaignGenerator:
     def generate(
         self,
         request: CampaignRequest,
-        *,
-        avoid_names: list[str] | None = None,
     ) -> tuple[CampaignSeed, Usage]:
         lines = [
             f"Title hint: {request.title or 'none'}",
@@ -280,22 +196,14 @@ class CampaignGenerator:
             f"Tone: {request.tone or 'your choice'}",
             f"Player character hint: {request.character or 'your choice'}",
         ]
-        names = sorted({name.strip() for name in (avoid_names or []) if name.strip()})
-        if names:
-            lines.append(
-                "Do not reuse these names from earlier campaigns: " + ", ".join(names[:80])
-            )
         lines.append("Create the campaign now. Fill every field that matters.")
         user_input = "\n".join(lines)
         total_usage = Usage()
         last_error: ValidationError | None = None
         retry_issue: str | None = None
-        theme_retry = False
-        for _ in range(3):
+        for _ in range(2):
             prompt = user_input
             corrections: list[str] = []
-            if theme_retry:
-                corrections.append(_WATER_RETRY)
             if retry_issue is not None:
                 corrections.append(retry_issue)
             if last_error is not None:
@@ -335,18 +243,13 @@ class CampaignGenerator:
                 last_error = exc
                 continue
 
-            if _water_default(seed, request) and not theme_retry:
-                theme_retry = True
-                last_error = None
-                retry_issue = None
-                continue
             return seed, total_usage
 
         if last_error is not None:
             summary = _validation_summary(last_error)
             raise AgentError(
-                "campaign generation failed validation after three attempts:\n" + summary
+                "campaign generation failed validation after two attempts:\n" + summary
             )
         raise AgentError(
-            "campaign generation returned incomplete structured output after three attempts"
+            "campaign generation returned incomplete structured output after two attempts"
         )

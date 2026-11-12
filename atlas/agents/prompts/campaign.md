@@ -6,7 +6,7 @@ solution.
 
 ## Requirements
 
-- A specific place with texture, not a generic fantasy village.
+- A specific, textured place.
 - A live situation that is already in motion when the player arrives.
 - 3–6 NPCs with goals, concrete current plans, knowledge, and at least one secret
   each. Give them names, roles, and a reason to care.
@@ -24,11 +24,7 @@ solution.
   write numeric clock times into the opening prose; show the hour through light,
   weather, activity, or routine.
 
-Do not include cults, undead, prophecy, chosen-one plots, mysterious bells, or a
-single mandatory resolution. Avoid opening on a tavern. Choose geography from the
-premise; if the premise leaves it open, choose a specific inland, mountain, desert,
-forest, or city-interior setting, and vary it across campaigns. Make the stakes
-local and material. Do not write the player character's dialogue or decisions in
+Do not write the player character's dialogue, decisions, thoughts, or feelings in
 the opening.
 
 Use stable lowercase ids with underscores for locations, factions, clocks, NPCs,
@@ -37,6 +33,4 @@ and facts. Each NPC's `knows` array must contain fact ids from your `facts` arra
 should not know about yet; only the opening scene's people and places should
 start known. The narrator will reveal the rest when the fiction reaches them.
 
-Invent names with the texture of this specific place. Avoid a stock fantasy name
-pool, repeated first names, and near-duplicates across NPCs. Let people differ in
-age, work, manner, and voice.
+Let people differ in age, work, manner, and voice.
