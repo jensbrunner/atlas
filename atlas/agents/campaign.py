@@ -171,6 +171,14 @@ CAMPAIGN_PARAMETERS = _obj(
 )
 
 
+def _validation_summary(exc: ValidationError) -> str:
+    lines = []
+    for error in exc.errors(include_input=False, include_url=False):
+        location = ".".join(str(part) for part in error.get("loc", ())) or "campaign"
+        lines.append(f"- {location}: {error.get('msg', 'invalid value')}")
+    return "\n".join(lines)
+
+
 class CampaignGenerator:
     def __init__(self, provider: Provider, settings: Settings) -> None:
         self.provider = provider
@@ -203,7 +211,8 @@ class CampaignGenerator:
                 prompt = (
                     f"{user_input}\n\n"
                     "Your previous submission failed validation. Fix exactly these "
-                    f"problems and resubmit the complete campaign:\n{last_error}"
+                    f"problems and resubmit the complete campaign:\n"
+                    f"{_validation_summary(last_error)}"
                 )
             payload, usage = self.provider.generate_structured(
                 StructuredRequest(
@@ -222,4 +231,5 @@ class CampaignGenerator:
             except ValidationError as exc:
                 last_error = exc
 
-        raise AgentError(f"campaign generation failed validation after two attempts: {last_error}")
+        summary = _validation_summary(last_error) if last_error else "unknown error"
+        raise AgentError("campaign generation failed validation after two attempts:\n" + summary)
