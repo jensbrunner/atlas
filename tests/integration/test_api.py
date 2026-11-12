@@ -50,6 +50,7 @@ def test_health_config_and_campaign_roundtrip(tmp_path: Path) -> None:
         campaign = created.json()["campaign"]
         campaign_id = campaign["id"]
         assert campaign["turn_count"] == 0
+        start_minute = campaign["world_time_minutes"]
 
         player = client.get(f"/api/campaigns/{campaign_id}/player")
         assert player.status_code == 200
@@ -66,7 +67,7 @@ def test_health_config_and_campaign_roundtrip(tmp_path: Path) -> None:
         assert played.status_code == 200
         body = played.json()
         assert body["turn"] == 1
-        assert body["player"]["campaign"]["world_time_minutes"] == 15
+        assert body["player"]["campaign"]["world_time_minutes"] == start_minute + 15
         assert any(item["name"] == "Lantern" for item in body["player"]["inventory"])
 
         turns = client.get(f"/api/campaigns/{campaign_id}/turns").json()["turns"]
@@ -129,6 +130,7 @@ def test_api_leak_error_does_not_echo_the_secret(tmp_path: Path) -> None:
         campaign_id = created.json()["campaign"]["id"]
         secret = "The council borrowed heavily against harbor fees that no longer exist."
         provider.replies.append(AgentReply(text=f"The truth is: {secret}"))
+        provider.replies.append(AgentReply(text=f"The truth remains: {secret}"))
 
         response = client.post(
             f"/api/campaigns/{campaign_id}/turns",

@@ -8,7 +8,7 @@ from atlas.config import Settings
 
 
 def test_defaults_are_offline_and_use_luna(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path)
+    settings = Settings(data_dir=tmp_path, _env_file=None)
     assert settings.provider == "fake"
     assert settings.live is False
     assert settings.campaign_model == "gpt-6-luna"

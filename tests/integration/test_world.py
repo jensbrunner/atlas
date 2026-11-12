@@ -51,8 +51,8 @@ def test_world_turn_loads_after_the_player_turn_with_the_same_number(tmp_path: P
     kinds = [turn.kind for turn in reloaded.turns if turn.turn == 1]
     assert kinds == ["player", "world"]
     world_turn = next(turn for turn in reloaded.turns if turn.kind == "world")
-    assert world_turn.world_time_before == 0
-    assert world_turn.world_time_after == 60
+    assert world_turn.world_time_before == state.meta.world_time_minutes
+    assert world_turn.world_time_after == state.meta.world_time_minutes + 60
 
 
 def test_auditor_returns_configured_findings(tmp_path: Path) -> None:

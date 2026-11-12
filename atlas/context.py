@@ -53,10 +53,12 @@ def _npc_sheet(state: CampaignState, npc_id: str) -> str:
     location = npc.location or "unknown"
     known = ", ".join(npc.knows) or "none"
     goals = "; ".join(npc.goals) or "none"
+    plans = "; ".join(npc.plans) or "none"
     lines = [
         f"### {npc.name} ({npc_id})",
         f"Location: {location}; attitude: {npc.attitude}; player-known: {npc.player_known}",
         f"Health: {npc.health.current}/{npc.health.max}; goals: {goals}",
+        f"Current plans: {plans}",
         f"Knows facts: {known}",
     ]
     if body:

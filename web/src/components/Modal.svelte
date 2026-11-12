@@ -8,14 +8,17 @@
   }: { title: string; onClose: () => void; children: Snippet } = $props()
 </script>
 
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === 'Escape') onClose()
+  }}
+/>
+
 <div
   class="overlay"
   role="presentation"
   onclick={(event) => {
     if (event.target === event.currentTarget) onClose()
-  }}
-  onkeydown={(event) => {
-    if (event.key === 'Escape') onClose()
   }}
 >
   <div class="modal" role="dialog" aria-modal="true" aria-label={title} tabindex="-1">

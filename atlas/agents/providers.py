@@ -40,7 +40,7 @@ class OpenAIProvider:
             from openai import OpenAI
         except ImportError as exc:  # pragma: no cover - dependency is declared
             raise AgentError("the openai package is not installed") from exc
-        self._client = OpenAI(api_key=api_key, timeout=timeout)
+        self._client = OpenAI(api_key=api_key, timeout=timeout, max_retries=0)
 
     # -- narrator/tool loop -------------------------------------------
 

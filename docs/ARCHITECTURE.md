@@ -81,17 +81,20 @@ web/
 4. Build the GM packet: campaign premise, character, world, NPCs, clocks, facts,
    and recent turns, within a character budget.
 5. Run the narrator loop. Each provider call may return tool calls; tools mutate
-   the in-memory state and return results to the model.
+   the in-memory state and return results to the model. Identical tool effects are
+   ignored within the turn, and the loop has a wall-clock deadline.
 6. Take the final assistant text as narration.
-7. Reject the turn if narration is empty, contains protected GM material, or if
-   the resulting state violates an invariant.
-8. Write changed state files atomically (`os.replace`).
-9. Append `turns/NNNN.md` and the player-facing `journal.md` entry.
-10. Return the narration, rolls, changes, usage, and a fresh player view.
+7. If the leak scan trips, run one repair pass: the narrator may reveal what was
+   genuinely discovered with a discovery tool, or rewrite without it.
+8. Reject the turn if narration is still empty or leaking, or if the resulting
+   state violates an invariant.
+9. Write changed state files atomically (`os.replace`).
+10. Append `turns/NNNN.md` and the player-facing `journal.md` entry.
+11. Return the narration, rolls, changes, usage, and a fresh player view.
 
-If the model call fails, a tool raises an unexpected error, the leak scan trips,
-or validation fails, nothing is written. A rejected tool call is returned to the
-model as `ERROR: ...`; it does not abort the turn by itself.
+If the model call fails, a tool raises an unexpected error, the leak scan still
+trips after repair, or validation fails, nothing is written. A rejected tool call
+is returned to the model as `ERROR: ...`; it does not abort the turn by itself.
 
 If the narrator calls `request_world_turn`, the player turn is committed first,
 then a world turn runs. A failed world turn never erases the committed player
@@ -102,7 +105,7 @@ turn.
 - `campaign.md` — campaign metadata and prose notes.
 - `character.md` — player sheet and inventory.
 - `world.md` — locations, factions, clocks, facts, situation, prose/GM blocks.
-- `npcs/<slug>.md` — NPC sheet, goals, knowledge, description, GM block.
+- `npcs/<slug>.md` — NPC sheet, goals, plans, knowledge, description, GM block.
 - `journal.md` — player-facing log.
 - `turns/NNNN.md` — opening and player turns.
 - `turns/NNNN-world.md` — offscreen world turns.
@@ -115,11 +118,14 @@ and locations use `player_known`; clocks use `visibility`.
 
 `atlas/state/render.py` derives both views from the same `CampaignState`:
 
-- **Player view:** character sheet, inventory, player-known locations/factions/
-  NPCs, player-visible clocks, revealed facts, stripped journal, and the opening
-  plus player turns. NPC goals, knowledge, secrets, and full sheets are omitted.
-- **GM view:** everything, including hidden facts, all clocks, NPC goals/
-  knowledge, GM prose blocks, raw journal, and world turns.
+- **Player view:** character sheet and description, inventory, player-known
+  locations, faction names, NPC names/locations/descriptions, player-visible
+  clocks, revealed facts, stripped journal, and the opening plus player turns.
+  NPC attitudes, goals, plans, knowledge, secrets, faction goals/stances, and full
+  sheets are omitted.
+- **GM view:** everything, including hidden facts, all clocks, NPC goals/plans/
+  knowledge, faction goals/resources, GM prose blocks, raw journal, and world
+  turns.
 
 The server renders the player view. The frontend never receives GM fields it
 could accidentally display.
@@ -133,10 +139,12 @@ could accidentally display.
 | `patch_inventory` | add/remove/set item quantities |
 | `patch_clock` / `create_clock` | pressure clocks |
 | `advance_time` | in-world minutes |
-| `update_npc` / `update_faction` | location, attitude, goals, knowledge, resources |
+| `update_npc` / `update_faction` | location, attitude, goals, plans, knowledge, resources |
+| `create_npc` / `create_location` | introduce new people and places |
+| `reveal_npc` / `reveal_location` / `reveal_faction` | mark discoveries |
 | `record_fact` / `reveal_fact` | canonical facts and secrets |
 | `append_journal` | short player-facing journal note |
-| `set_scene` | move scene, update location/situation |
+| `set_scene` | move scene, reveal the destination, update location/situation |
 | `request_world_turn` | queue offscreen evolution after the turn |
 
 Every tool has a closed JSON schema and returns a short result string. Bounds are
@@ -145,12 +153,20 @@ known entity references, monotonic world time, valid fact/NPC references.
 
 ## Agents and cost
 
-- The narrator is one provider loop per turn. `max_tool_iterations` caps the loop.
-- The campaign generator is one structured tool call.
+- The narrator is one provider loop per turn. `max_tool_iterations` caps the loop,
+  `ATLAS_TURN_DEADLINE_SECONDS` caps wall time, and identical tool effects are
+  suppressed within a turn.
+- A rejected narration gets one leak-repair provider pass.
+- The campaign generator is one structured tool call, retried once with the
+  validation error if the seed is malformed. Tolerant draft models ignore unknown
+  volunteered fields.
 - The world agent is invoked only manually or when the narrator requests it.
 - The auditor is invoked only on demand and returns structured findings.
 - Recent turns and total prompt characters are budgeted.
-- Token usage is stored in every turn file and returned by the API.
+- Token usage is stored in every turn file and returned by the API. The OpenAI
+  client uses `ATLAS_REQUEST_TIMEOUT_SECONDS` and no hidden SDK retries.
+- Startup time is stored as `world_time_minutes`; the generator chooses a
+  plausible `start_minute` for the opening.
 - `ATLAS_SESSION_USD_LIMIT` is checked against accumulated estimated cost. Set
   `ATLAS_INPUT_USD_PER_MILLION` and `ATLAS_OUTPUT_USD_PER_MILLION` to price
   tokens. With the default zero rates the estimate stays at zero, so the cap
@@ -160,7 +176,8 @@ known entity references, monotonic world time, valid fact/NPC references.
 
 - **Provider failure:** no files change; the API returns `502 provider_error`.
 - **Empty narration:** no files change; `502 empty_narration`.
-- **Leak detected:** no files change; `422 content_leak`.
+- **Leak detected:** one repair pass; if it still leaks, no files change and the
+  API returns `422 content_leak`.
 - **Invalid state:** no files change; `422 invalid_state`.
 - **Unknown campaign:** `404 not_found`.
 - **Invalid request body or action:** `422 invalid_request`.

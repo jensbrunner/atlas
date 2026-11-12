@@ -42,7 +42,14 @@
   {:else}
     <div class="grid">
       {#each campaigns as campaign (campaign.id)}
-        <button class="card" onclick={() => onSelect(campaign.id)}>
+        <a
+          class="card"
+          href={`#${campaign.id}`}
+          onclick={(event) => {
+            event.preventDefault()
+            onSelect(campaign.id)
+          }}
+        >
           <h3>{campaign.title}</h3>
           <p class="premise muted">{campaign.premise || 'No premise recorded.'}</p>
           <div class="meta">
@@ -50,7 +57,7 @@
             <span>turn {campaign.turn_count}</span>
             {#if campaign.genre}<span>{campaign.genre}</span>{/if}
           </div>
-        </button>
+        </a>
       {/each}
     </div>
   {/if}
@@ -114,11 +121,20 @@
     text-align: left;
     padding: 1.2rem;
     background: var(--panel);
+    border: 1px solid transparent;
     border-radius: 10px;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     min-height: 170px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 120ms ease;
+  }
+
+  .card:hover {
+    border-color: var(--accent-soft);
   }
 
   .card h3 {

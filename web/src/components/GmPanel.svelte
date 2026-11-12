@@ -65,6 +65,9 @@
               Goals: {((npc.sheet as { goals?: string[] }).goals ?? []).join('; ') || 'none'}
             </p>
             <p class="small muted">
+              Plans: {((npc.sheet as { plans?: string[] }).plans ?? []).join('; ') || 'none'}
+            </p>
+            <p class="small muted">
               Knows: {((npc.sheet as { knows?: string[] }).knows ?? []).join(', ') || 'nothing recorded'}
             </p>
             {#if npc.notes}
@@ -72,6 +75,29 @@
             {/if}
           </div>
         {/each}
+      </section>
+
+      <section>
+        <h3>Factions</h3>
+        <ul class="plain">
+          {#each view.gm.factions as faction (faction.id)}
+            <li>
+              <strong>{faction.name}</strong>
+              <span class="badge {faction.player_known ? 'player' : 'gm'}">
+                {faction.player_known ? 'known' : 'hidden'}
+              </span>
+              <div class="small muted">Stance: {faction.stance || 'none'}</div>
+              <div class="small muted">Goal: {faction.goal || 'none'}</div>
+              {#if Object.keys(faction.resources).length}
+                <div class="faint small">
+                  Resources: {Object.entries(faction.resources)
+                    .map(([key, value]) => `${key} ${value}`)
+                    .join(', ')}
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
       </section>
 
       <section>

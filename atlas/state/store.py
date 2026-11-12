@@ -139,6 +139,7 @@ class CampaignStore:
                 skills=npc_draft.skills,
                 health=Track(current=npc_draft.health_max, max=npc_draft.health_max),
                 goals=npc_draft.goals,
+                plans=npc_draft.plans,
                 knows=[fact for fact in npc_draft.knows if fact in facts],
             )
             body = npc_draft.appearance.strip()
@@ -184,6 +185,7 @@ class CampaignStore:
             premise=seed.premise,
             created_at=datetime.now(UTC),
             narrator_model=narrator_model,
+            world_time_minutes=seed.start_minute,
         )
 
         character_body = "\n\n".join(
@@ -208,8 +210,8 @@ class CampaignStore:
             turn=0,
             kind="opening",
             action="Begin the campaign",
-            world_time_before=0,
-            world_time_after=0,
+            world_time_before=seed.start_minute,
+            world_time_after=seed.start_minute,
             model=narrator_model,
             narration=seed.opening_scene.strip(),
         )

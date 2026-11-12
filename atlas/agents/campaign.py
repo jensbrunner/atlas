@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import ValidationError
+
 from atlas.agents.prompts import load_prompt
-from atlas.agents.types import Provider, StructuredRequest
+from atlas.agents.types import AgentError, Provider, StructuredRequest, add_usage
 from atlas.config import Settings
 from atlas.state.schemas import CampaignSeed, Usage
 
@@ -101,7 +103,10 @@ _CLOCK = _obj(
 
 _FACT = _obj(
     {
-        "id": {"type": "string"},
+        "id": {
+            "type": "string",
+            "description": "Stable lowercase id with underscores, e.g. fact_missing_manifest.",
+        },
         "text": {"type": "string"},
         "visibility": {"type": "string", "enum": ["gm", "player"]},
         "tags": {"type": "array", "items": {"type": "string"}},
@@ -120,7 +125,20 @@ _NPC = _obj(
         "skills": {"type": "object", "additionalProperties": {"type": "integer"}},
         "health_max": {"type": "integer", "minimum": 1, "maximum": 20},
         "goals": {"type": "array", "items": {"type": "string"}},
-        "knows": {"type": "array", "items": {"type": "string"}},
+        "plans": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "description": "A concrete step the NPC is taking now to pursue a goal.",
+            },
+        },
+        "knows": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "description": "A fact id from the facts array. Never put prose here.",
+            },
+        },
         "appearance": {"type": "string"},
         "secret": {"type": "string"},
     },
@@ -135,6 +153,12 @@ CAMPAIGN_PARAMETERS = _obj(
         "premise": {"type": "string"},
         "notes": {"type": "string"},
         "opening_scene": {"type": "string"},
+        "start_minute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Minutes after midnight for the opening scene, e.g. 1080 = 18:00.",
+        },
         "current_location": {"type": "string"},
         "character": _CHARACTER,
         "locations": {"type": "array", "items": _LOCATION},
@@ -162,15 +186,31 @@ class CampaignGenerator:
                 "Create the campaign now. Fill every field that matters.",
             ]
         )
-        payload, usage = self.provider.generate_structured(
-            StructuredRequest(
-                model=self.settings.campaign_model,
-                instructions=load_prompt("campaign"),
-                user_input=user_input,
-                tool_name="submit_campaign",
-                tool_description="Submit a complete, ready-to-play campaign seed.",
-                parameters=CAMPAIGN_PARAMETERS,
-                max_output_tokens=6_000,
+        total_usage = Usage()
+        last_error: ValidationError | None = None
+        for attempt in range(2):
+            prompt = user_input
+            if attempt and last_error is not None:
+                prompt = (
+                    f"{user_input}\n\n"
+                    "Your previous submission failed validation. Fix exactly these "
+                    f"problems and resubmit the complete campaign:\n{last_error}"
+                )
+            payload, usage = self.provider.generate_structured(
+                StructuredRequest(
+                    model=self.settings.campaign_model,
+                    instructions=load_prompt("campaign"),
+                    user_input=prompt,
+                    tool_name="submit_campaign",
+                    tool_description="Submit a complete, ready-to-play campaign seed.",
+                    parameters=CAMPAIGN_PARAMETERS,
+                    max_output_tokens=6_000,
+                )
             )
-        )
-        return CampaignSeed.model_validate(payload), usage
+            total_usage = add_usage(total_usage, usage)
+            try:
+                return CampaignSeed.model_validate(payload), total_usage
+            except ValidationError as exc:
+                last_error = exc
+
+        raise AgentError(f"campaign generation failed validation after two attempts: {last_error}")

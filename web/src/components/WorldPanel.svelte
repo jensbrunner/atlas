@@ -30,7 +30,6 @@
       {#each npcs as npc (npc.id)}
         <li>
           <strong>{npc.name}</strong>
-          <span class="muted"> · {npc.attitude}</span>
           {#if npc.location}
             <div class="faint small">at {locationNames[npc.location] ?? npc.location}</div>
           {/if}
@@ -48,8 +47,6 @@
       {#each world.factions as faction (faction.id)}
         <li>
           <strong>{faction.name}</strong>
-          <span class="muted"> · {faction.stance}</span>
-          {#if faction.goal}<div class="faint small">{faction.goal}</div>{/if}
         </li>
       {/each}
     </ul>

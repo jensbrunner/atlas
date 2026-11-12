@@ -40,7 +40,7 @@ def test_play_turn_rolls_inventory_time_and_persists(tmp_path: Path) -> None:
 
     assert result.turn == 1
     assert len(result.rolls) == 1
-    assert result.player["campaign"]["world_time_minutes"] == 30
+    assert result.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 30
     rations = next(item for item in result.player["inventory"] if item["name"] == "Rations")
     assert rations["quantity"] == 2
 
@@ -71,6 +71,6 @@ def test_second_turn_uses_persisted_state(tmp_path: Path) -> None:
     first = service.play_turn(state.meta.id, "wait")
     second = service.play_turn(state.meta.id, "wait again")
 
-    assert first.player["campaign"]["world_time_minutes"] == 10
-    assert second.player["campaign"]["world_time_minutes"] == 30
+    assert first.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 10
+    assert second.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 30
     assert second.turn == 2

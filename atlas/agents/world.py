@@ -39,4 +39,5 @@ class WorldAgent:
             request,
             ctx,
             max_iterations=self.settings.max_tool_iterations,
+            deadline_seconds=self.settings.turn_deadline_seconds,
         )

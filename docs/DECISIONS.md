@@ -117,6 +117,41 @@ old tests, old docs, and the prewritten Broken Span scenario were removed from
 the working tree. Git history preserves them. The new harness does not import or
 depend on any of it.
 
+## ADR-016 — Discovery and creation are tools
+
+Accepted. The narrator can introduce a new place or NPC with `create_location`
+and `create_npc`, and mark a genuine discovery with `reveal_location`,
+`reveal_npc`, or `reveal_faction`. `set_scene` reveals its destination. This lets
+the world grow without leaking hidden material.
+
+## ADR-017 — A leaked draft gets one repair pass
+
+Accepted. If narration mentions protected material, the narrator sees the
+rejection and may reveal what the fiction genuinely discovered or rewrite without
+it. The repair shares the in-memory turn, so already-applied mechanical changes
+survive. A second leak fails the turn with nothing written.
+
+## ADR-018 — Identical tool effects apply once per turn
+
+Accepted. Repeating a tool call with the same mechanical arguments (ignoring
+purely descriptive fields such as `reason`) is ignored for the rest of the turn.
+This prevents a model that re-enters the tool loop from double-charging
+inventory, clocks, or time. If a larger effect is intended, the model must make
+one call with a larger value.
+
+## ADR-019 — Generate a starting time
+
+Accepted. Campaign generation includes `start_minute`, stored as
+`world_time_minutes`, so an opening at dusk does not display as Day 1, 00:00.
+Narration avoids numeric clock times and shows time through the fiction.
+
+## ADR-020 — The player view is deliberately sparse
+
+Accepted. The player sees character, inventory, known places, faction names, NPC
+names/locations/descriptions, visible clocks, revealed facts, and the transcript.
+NPC attitudes, goals, plans, knowledge, faction goals/stances/resources, and full
+sheets remain GM-side. This keeps social inference and mystery in the fiction.
+
 ## Deferred decisions
 
 - Streaming narration over SSE.

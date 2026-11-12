@@ -16,6 +16,9 @@
 <section class="panel">
   <h3>{character.name}</h3>
   <p class="concept muted">{character.concept}</p>
+  {#if character.description}
+    <p class="bio">{character.description}</p>
+  {/if}
 
   <div class="stats">
     {#each attributes as [label, value]}
@@ -73,6 +76,15 @@
   .concept {
     margin: 0 0 1.25rem;
     font-size: 0.88rem;
+  }
+
+  .bio {
+    margin: -0.6rem 0 1.25rem;
+    font-family: var(--serif);
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: #d8cdbd;
+    white-space: pre-wrap;
   }
 
   .stats {

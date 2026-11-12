@@ -2,16 +2,17 @@
 
 ## Status
 
-**Milestone reached: start a campaign.**
+**Milestone exceeded: live campaigns play end to end.**
 
-The local-first rebuild works end to end with the offline fake provider: generate
-a campaign from a premise, read the opening scene, play a turn that rolls dice and
-changes state, inspect the panels, open the hidden GM view, run an audit, restart
-the server, and continue from the same markdown files.
+Live GPT-6 Luna campaigns have been generated and played through the real OpenAI
+Responses API: campaign creation, multi-turn play with rolls and state changes,
+discovery of hidden NPCs/locations, world turns, audits, and server restarts.
+Narration has been consistently character-driven, with NPC plans, secrets, clocks,
+and consequences carrying forward.
 
-Live narration through the OpenAI Responses API is implemented and gated behind
-`ATLAS_PROVIDER=openai` + `ATLAS_OPENAI_API_KEY` + `ATLAS_ALLOW_CLOUD=true`. It
-has **not** been exercised against a real key in this repository yet.
+The offline fake provider remains the default for tests and development. Live use
+still requires `ATLAS_PROVIDER=openai` + `ATLAS_OPENAI_API_KEY` +
+`ATLAS_ALLOW_CLOUD=true`.
 
 The old SQLite/event-sourced engine, migrations, deterministic adjudicator, and
 the Broken Span scenario are deleted from the working tree. Git history keeps
@@ -28,7 +29,9 @@ them.
   written until the model reply, leak scan, and state validation all pass.
 - One canon, two views. `atlas/state/render.py` derives the player view by
   stripping `<!-- gm -->` blocks, hidden facts, hidden NPC knowledge, and
-  `player_known: false` entities. The GM view exposes everything.
+  `player_known: false` entities. NPC attitudes/plans and faction goals/stances
+  stay GM-side. The GM view exposes everything.
+- Campaigns open at a generated time of day, stored as `world_time_minutes`.
 - Turn files and the journal are the audit trail: action, rolls, changes, model,
   token usage, world time, narration.
 
@@ -40,17 +43,24 @@ them.
   `success`.
 - Tool-gated changes only: `roll`, `patch_character`, `patch_inventory`,
   `patch_clock`, `create_clock`, `advance_time`, `update_npc`, `update_faction`,
-  `record_fact`, `reveal_fact`, `append_journal`, `set_scene`,
+  `create_npc`, `create_location`, `reveal_npc`, `reveal_location`,
+  `reveal_faction`, `record_fact`, `reveal_fact`, `append_journal`, `set_scene`,
   `request_world_turn`.
+- `set_scene` reveals its destination; new places and people are introduced
+  through tools rather than unmetered prose.
 - Bounds and references are enforced server-side. A rejected call returns
-  `ERROR: ...` to the model without aborting the turn.
+  `ERROR: ...` to the model without aborting the turn. Identical tool effects are
+  suppressed within a turn so a repeated loop cannot double-charge state.
 
 ### Agents
 
-- Campaign generator: one forced structured tool call (`submit_campaign`),
-  validated by Pydantic before any file is written.
-- Narrator: one tool loop per player turn, budgeted GM packet, recent-turn
-  window, configurable model.
+- Campaign generator: forced structured tool call (`submit_campaign`), tolerant of
+  volunteered extra fields, retried once with validation feedback. Assigns fact
+  ids and resolves NPC knowledge given as fact prose.
+- Narrator: one tool loop per player turn, budgeted GM packet, recent-turn window,
+  configurable model, wall-clock deadline, and one leak-repair pass.
+- Player-view privacy: NPC attitudes/plans and faction goals/stances never reach
+  the browser.
 - World agent: offscreen evolution on manual request or narrator request; updates
   clocks, factions, NPCs, and facts without narrating the player's scene.
 - Auditor: on-demand structured findings with severity, summary, and evidence.
@@ -63,8 +73,8 @@ them.
 - FastAPI endpoints for health, config, campaign CRUD, player view, GM view,
   turns, world turn, and audit. Typed error envelope with stable codes.
 - Svelte 5 + Vite + TypeScript UI: campaign list and creation form, play view,
-  narration transcript, action composer, character/inventory/world/clocks/journal
-  panels, GM modal, audit modal.
+  narration transcript, action composer, character (with bio)/inventory/world/
+  clocks/journal panels, GM modal with NPC plans and faction secrets, audit modal.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -75,10 +85,10 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 50 passed |
+| `uv run pytest -q` | 63 passed |
 | `uv run ruff check .` | clean |
-| `uv run ruff format --check .` | 57 files already formatted |
-| `uv run mypy` | no issues in 49 source files |
+| `uv run ruff format --check .` | 64 files already formatted |
+| `uv run mypy` | no issues in 54 source files |
 | `cd web && npm run check` | 0 errors, 0 warnings |
 | `cd web && npm run build` | 137 modules transformed, build OK |
 
@@ -89,20 +99,27 @@ network calls and need no credentials. Coverage includes:
 - dice outcomes and modifier math;
 - tool bounds: inventory add/remove, health clamps, clock clamps, unknown tools,
   bad argument types, fact record/reveal;
-- campaign creation, file layout, player/GM separation, restart reload;
+- campaign creation, generated start time, file layout, player/GM separation,
+  restart reload;
 - seed validation: duplicate and slug-colliding ids, slug-normalized location
-  references;
+  references, fact-id assignment, prose knowledge resolution, unknown draft fields;
 - store path-traversal rejection and partial directory handling;
 - offline/live configuration gates, default Luna models, key requirements;
 - multi-turn state carry-over, time, inventory, rolls, journal, turn files;
 - hidden-fact leak rejection with no turn committed;
+- leak repair before commit, and repair that reveals a fact instead;
 - hidden-name leaks matched on word boundaries, not inside ordinary words;
 - leak errors never echo the protected text;
+- player view omitting NPC attitudes and faction goals/stances;
+- discovery and creation tools: new locations/NPCs, scene reveal, faction reveal;
 - provider failure leaving files untouched;
 - rejected tool call not aborting a turn;
+- duplicate tool effects applying once per turn, including reworded clock reasons;
+- tool-loop deadline and iteration limit;
 - world turn clock changes hidden from player narration, world-turn files, and
   world turns loading after a player turn with the same number;
 - auditor findings and empty findings;
+- campaign generation retry with validation feedback, and failure after two tries;
 - OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
   structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an
@@ -121,38 +138,47 @@ Manual smoke test (fake provider, built frontend):
 8. Restart the server → `GET /api/campaigns` still lists the campaign and the
    transcript is intact.
 
-Live wiring smoke test (no model request): with `ATLAS_PROVIDER=openai`,
-`ATLAS_ALLOW_CLOUD=true`, and a dummy key, `/healthz` reports `live: true` and
-`/api/config` reports the four Luna models. Only a real key and provider
-availability remain unverified.
+Live OpenAI smoke test (GPT-6 Luna):
+
+- `POST /api/campaigns` generated *Snowline at Split Fir* in 57.1 s
+  (1,081 input / 4,989 output tokens), opening at Day 1, 16:45 with five known
+  NPCs and four hidden facts.
+- The first player turn took 17.0 s (9,470 / 980 tokens) and produced a coherent
+  NPC response, clock state, and no secret leak.
+- A second campaign opened at Day 1, 05:20; asking about a hidden NPC triggered
+  `reveal_npc`, and travelling to a hidden location triggered `set_scene` plus
+  location discovery.
+- A wound-care turn rolled `mixed_success`, consumed a dressing, reduced the
+  wound clock, and revealed a fact. After duplicate suppression, a later turn
+  produced no duplicate changes.
+- One live world turn took 28.7 s and advanced hidden and visible clocks; the
+  audit returned zero findings in 1.8 s.
+- Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations
 
-- No narration streaming; the UI waits for a committed turn.
+- No narration streaming; the UI waits for a committed turn (live turns have
+  taken roughly 17–45 s).
 - No campaign export/import, and no delete confirmation in the UI.
 - World turns are manual or narrator-requested; no time-threshold automation.
 - Context is a recent-turn window plus budgets, not retrieval over long
   campaigns.
 - Secret-leak detection is verbatim matching against GM fact text, GM prose
-  blocks, and hidden NPC names. It is a backstop, not a semantic guarantee.
+  blocks, and hidden names, followed by one repair pass. It is a backstop, not a
+  semantic guarantee.
 - USD estimates use an optional static price table
   (`ATLAS_INPUT_USD_PER_MILLION` / `ATLAS_OUTPUT_USD_PER_MILLION`). No per-model
   price presets are bundled, so the session cap is inert until rates are set,
   and session spend resets when the server restarts.
 - Single-user localhost only. No auth, no remote hosting.
-- Live OpenAI behavior (model availability, tool-call format, structured output)
-  is unverified without a key.
 
 ## Next steps
 
-1. Live smoke test with an API key: campaign generation, three player turns with a
-   roll and an inventory change, one world turn, one audit. Record actual model
-   IDs and any adapter fixes.
-2. Add per-model price presets so `ATLAS_SESSION_USD_LIMIT` is meaningful without
+1. Add per-model price presets so `ATLAS_SESSION_USD_LIMIT` is meaningful without
    hand-entering rates.
-3. Add SSE streaming for narration while keeping commit-time atomicity.
-4. Add UI deletion with confirmation and campaign export/import of the directory.
-5. Replace verbatim leak matching with a model-side redaction pass or embedding
+2. Add SSE streaming for narration while keeping commit-time atomicity.
+3. Add UI deletion with confirmation and campaign export/import of the directory.
+4. Replace verbatim leak matching with a model-side redaction pass or embedding
    similarity, then keep the verbatim check as a fast path.
-6. Add retrieval over old turns once campaigns run long enough to exceed the
-   context budget.
+5. Add retrieval or rolling recap over old turns once campaigns run long enough
+   to exceed the context budget.

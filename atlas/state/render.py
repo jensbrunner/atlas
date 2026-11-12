@@ -31,7 +31,7 @@ def player_view(state: CampaignState) -> dict[str, Any]:
         if location.player_known
     ]
     visible_factions = [
-        {"id": slug, **faction.model_dump(mode="json")}
+        {"id": slug, "name": faction.name}
         for slug, faction in world.factions.items()
         if faction.player_known
     ]
@@ -45,7 +45,6 @@ def player_view(state: CampaignState) -> dict[str, Any]:
             "id": npc_id,
             "name": npc.name,
             "location": npc.location,
-            "attitude": npc.attitude,
             "description": strip_gm_blocks(state.npc_bodies.get(npc_id, "")),
         }
         for npc_id, npc in state.npcs.items()
@@ -53,6 +52,7 @@ def player_view(state: CampaignState) -> dict[str, Any]:
     ]
 
     character = state.character.model_dump(mode="json")
+    character["description"] = strip_gm_blocks(state.character_body)
     inventory = sorted(
         (
             {"id": slug, **item.model_dump(mode="json")}

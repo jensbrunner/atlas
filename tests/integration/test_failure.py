@@ -11,12 +11,17 @@ from atlas.state.store import CampaignStore
 from tests.support import FailingProvider, fake_provider, make_service, seed_payload, tool
 
 
-def test_hidden_fact_text_in_narration_is_rejected(tmp_path: Path) -> None:
+def test_unrepaired_leak_is_rejected(tmp_path: Path) -> None:
     provider = fake_provider()
     service = make_service(tmp_path, provider=provider)
     state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
     secret = state.world.facts["fact_hidden_debt"].text
-    provider.replies.append(AgentReply(text=f"Here is the truth: {secret}"))
+    provider.replies.extend(
+        [
+            AgentReply(text=f"Here is the truth: {secret}"),
+            AgentReply(text=f"The ledger still says: {secret}"),
+        ]
+    )
 
     with pytest.raises(LeakDetected) as caught:
         service.play_turn(state.meta.id, "ask about the ledger")
@@ -25,6 +30,45 @@ def test_hidden_fact_text_in_narration_is_rejected(tmp_path: Path) -> None:
     reloaded = service.get(state.meta.id)
     assert reloaded.meta.turn_count == 0
     assert not (reloaded.root / "turns" / "0001.md").exists()
+
+
+def test_leak_is_repaired_before_commit(tmp_path: Path) -> None:
+    provider = fake_provider()
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+    secret = state.world.facts["fact_hidden_debt"].text
+    provider.replies.extend(
+        [
+            AgentReply(text=f"Here is the truth: {secret}"),
+            AgentReply(text="Mara studies you and decides to keep her answer to herself."),
+        ]
+    )
+
+    result = service.play_turn(state.meta.id, "ask about the ledger")
+
+    assert result.turn == 1
+    assert secret not in result.narration
+    assert secret not in str(result.player)
+    assert service.get(state.meta.id).meta.turn_count == 1
+
+
+def test_repair_can_reveal_a_fact_instead_of_removing_it(tmp_path: Path) -> None:
+    provider = fake_provider()
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+    secret = state.world.facts["fact_hidden_debt"].text
+    provider.replies.extend(
+        [
+            AgentReply(text=f"Here is the truth: {secret}"),
+            AgentReply(tool_calls=[tool("reveal_fact", "c1", fact="fact_hidden_debt")]),
+            AgentReply(text=f"Mara lays it out plainly: {secret}"),
+        ]
+    )
+
+    result = service.play_turn(state.meta.id, "ask about the ledger")
+
+    assert secret in result.narration
+    assert any(fact["id"] == "fact_hidden_debt" for fact in result.player["facts"])
 
 
 def test_hidden_name_is_matched_on_word_boundaries(tmp_path: Path) -> None:
@@ -47,6 +91,7 @@ def test_hidden_faction_name_in_narration_is_rejected(tmp_path: Path) -> None:
     service = make_service(tmp_path, provider=provider)
     state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
     provider.replies.append(AgentReply(text="The Town Council meets at dawn."))
+    provider.replies.append(AgentReply(text="The Town Council still meets at dawn."))
 
     with pytest.raises(LeakDetected):
         service.play_turn(state.meta.id, "listen at the door")

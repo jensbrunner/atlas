@@ -13,8 +13,23 @@ Visibility = Literal["gm", "player"]
 TurnKind = Literal["opening", "player", "world"]
 
 
+def _normalize_fact_text(text: str) -> str:
+    cleaned = text.casefold().replace("*", "").replace("_", " ")
+    return " ".join(cleaned.split()).strip(" .,:;!?\"'")
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
+class DraftModel(BaseModel):
+    """Tolerant base for model-generated drafts.
+
+    The model may volunteer extra fields. Unknown draft fields are ignored
+    rather than failing an otherwise good campaign; canonical state stays strict.
+    """
+
+    model_config = ConfigDict(extra="ignore", validate_assignment=True)
 
 
 class Attributes(StrictModel):
@@ -103,6 +118,7 @@ class NPC(StrictModel):
     skills: dict[str, int] = Field(default_factory=dict)
     health: Track = Field(default_factory=lambda: Track(current=6, max=6))
     goals: list[str] = Field(default_factory=list)
+    plans: list[str] = Field(default_factory=list)
     knows: list[str] = Field(default_factory=list)
 
 
@@ -162,14 +178,14 @@ class TurnRecord(StrictModel):
 # ---------------------------------------------------------------------------
 
 
-class ItemDraft(StrictModel):
+class ItemDraft(DraftModel):
     name: str = Field(min_length=1, max_length=120)
     quantity: int = Field(default=1, ge=1, le=10_000)
     tags: list[str] = Field(default_factory=list)
     description: str = ""
 
 
-class CharacterDraft(StrictModel):
+class CharacterDraft(DraftModel):
     name: str = Field(min_length=1, max_length=120)
     concept: str = ""
     attributes: Attributes = Field(default_factory=Attributes)
@@ -184,7 +200,7 @@ class CharacterDraft(StrictModel):
     background: str = ""
 
 
-class LocationDraft(StrictModel):
+class LocationDraft(DraftModel):
     id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
@@ -192,7 +208,7 @@ class LocationDraft(StrictModel):
     tags: list[str] = Field(default_factory=list)
 
 
-class FactionDraft(StrictModel):
+class FactionDraft(DraftModel):
     id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=120)
     goal: str = ""
@@ -201,7 +217,7 @@ class FactionDraft(StrictModel):
     player_known: bool = True
 
 
-class ClockDraft(StrictModel):
+class ClockDraft(DraftModel):
     id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=120)
     segments: int = Field(default=4, ge=1, le=20)
@@ -210,14 +226,14 @@ class ClockDraft(StrictModel):
     visibility: Visibility = "player"
 
 
-class FactDraft(StrictModel):
+class FactDraft(DraftModel):
     id: str | None = None
     text: str = Field(min_length=1, max_length=2_000)
     visibility: Visibility = "gm"
     tags: list[str] = Field(default_factory=list)
 
 
-class NPCDraft(StrictModel):
+class NPCDraft(DraftModel):
     id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=120)
     location: str = ""
@@ -227,18 +243,20 @@ class NPCDraft(StrictModel):
     skills: dict[str, int] = Field(default_factory=dict)
     health_max: int = Field(default=6, ge=1, le=20)
     goals: list[str] = Field(default_factory=list)
+    plans: list[str] = Field(default_factory=list)
     knows: list[str] = Field(default_factory=list)
     appearance: str = ""
     secret: str = ""
 
 
-class CampaignSeed(StrictModel):
+class CampaignSeed(DraftModel):
     title: str = Field(min_length=1, max_length=160)
     genre: str = ""
     tone: str = ""
     premise: str = ""
     notes: str = ""
     opening_scene: str = Field(min_length=1)
+    start_minute: int = Field(default=8 * 60, ge=0, le=1_439)
     current_location: str = Field(min_length=1)
     character: CharacterDraft
     locations: list[LocationDraft] = Field(min_length=1)
@@ -295,11 +313,47 @@ class CampaignSeed(StrictModel):
         for npc in self.npcs:
             if npc.location and slugify(npc.location) not in location_ids:
                 raise ValueError(f"npc {npc.id!r} references unknown location {npc.location!r}")
-        fact_ids = {fact.id for fact in self.facts if fact.id}
+
+        # Models sometimes omit fact ids or put fact prose in an NPC's `knows`
+        # list. Assign stable ids, then resolve ids or exact fact text to ids.
+        used: set[str] = set()
+        for fact in self.facts:
+            base = fact.id.strip() if fact.id else f"fact_{slugify(fact.text)[:48]}"
+            candidate = base
+            suffix = 2
+            while candidate in used:
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+            fact.id = candidate
+            used.add(candidate)
+
+        by_text: dict[str, str] = {}
+        for fact in self.facts:
+            if fact.id is not None:
+                by_text[_normalize_fact_text(fact.text)] = fact.id
         for npc in self.npcs:
-            missing = set(npc.knows) - fact_ids
-            if missing:
-                raise ValueError(f"npc {npc.id!r} knows unknown facts: {sorted(missing)}")
+            resolved: list[str] = []
+            for reference in npc.knows:
+                if reference in used:
+                    resolved.append(reference)
+                    continue
+                normalized = _normalize_fact_text(reference)
+                if normalized in by_text:
+                    resolved.append(by_text[normalized])
+                    continue
+                matches = [
+                    fact_id
+                    for text, fact_id in by_text.items()
+                    if len(normalized) >= 12 and (normalized in text or text in normalized)
+                ]
+                if len(set(matches)) == 1:
+                    resolved.append(matches[0])
+                    continue
+                raise ValueError(
+                    f"npc {npc.id!r} knows unknown fact {reference!r}; "
+                    "use a fact id or the exact fact text"
+                )
+            npc.knows = resolved
         return self
 
 

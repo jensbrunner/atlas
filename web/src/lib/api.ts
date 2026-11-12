@@ -28,6 +28,7 @@ export interface Character {
   id: string
   name: string
   concept: string
+  description: string
   attributes: Attributes
   skills: Record<string, number>
   health: Track
@@ -56,8 +57,11 @@ export interface Location {
 export interface Faction {
   id: string
   name: string
-  goal: string
+}
+
+export interface GmFaction extends Faction {
   stance: string
+  goal: string
   resources: Record<string, number>
   player_known: boolean
 }
@@ -81,7 +85,6 @@ export interface NPC {
   id: string
   name: string
   location: string
-  attitude: string
   description: string
 }
 
@@ -162,7 +165,7 @@ export interface GmView {
       gm_blocks: string
     }>
     locations: Location[]
-    factions: Faction[]
+    factions: GmFaction[]
     turns: TurnView[]
     journal_raw: string
   }

@@ -7,23 +7,27 @@ dice, bounded state tools, plain-text persistence, a hidden GM view, a
 player-facing view, and a localhost browser UI. There is no prewritten adventure,
 no story branches in the engine, and no database.
 
-> **Status:** the offline harness works end to end. Live OpenAI narration is
-> implemented and opt-in, but has not been exercised against a real key in this
-> repository yet.
+> **Status:** live GPT-6 Luna campaigns have been generated and played end to
+> end. The default remains the offline fake provider; live calls are opt-in.
 
 ## What it does
 
 - You start a campaign from a short premise. A campaign generator invents the
-  place, factions, NPCs, clocks, secrets, a player character, and an opening
-  scene.
+  place, factions, NPCs, clocks, secrets, a player character, an opening scene,
+  and a plausible starting time.
 - You type an action in the browser. A narrator model reads the GM packet, calls
   tools when it needs to roll dice or change state, and writes the scene.
 - Inventory, health, stress, clocks, time, NPCs, factions, facts, and the journal
   live in markdown files under `campaigns/<id>/`.
 - Every mechanical change goes through a validated tool. A failed model call or
   invalid change leaves the files untouched.
+- The narrator can introduce new places and people, and reveal hidden ones when
+  the fiction reaches them.
+- If a draft leaks hidden material, the harness gives the narrator one repair
+  pass: reveal what was genuinely discovered, or rewrite without it.
 - The server renders a player view by stripping GM-only material from the same
-  canon the narrator sees. There is no second state copy to drift.
+  canon the narrator sees. NPC attitudes, NPC plans, faction goals, and hidden
+  facts stay GM-side.
 - The world can evolve offscreen through a world agent, and a continuity auditor
   can review the canon without rewriting it.
 
@@ -128,16 +132,20 @@ Deliberately small:
   result is `failure`, `mixed_success`, or `success`.
 - Health, stress, supplies, currency, conditions, inventory quantities.
 - Named clocks with segments and triggers.
-- World time in minutes.
-- Factions, NPC goals/knowledge, and canonical facts with GM/player visibility.
+- World time in minutes, with a generated starting time.
+- Factions, NPC goals/plans/knowledge, and canonical facts with GM/player visibility.
+- Discovery tools for new or hidden locations, NPCs, factions, and facts.
 
 The narrator decides when a roll is needed. The tool layer decides what is legal.
 
 ## Agents and cost
 
 - **Narrator:** one model loop per player turn, plus tool round-trips. It cannot
-  write state directly; it calls tools.
-- **Campaign generator:** one structured call at campaign creation.
+  write state directly; it calls tools. A rejected draft gets one leak-repair
+  pass. Identical tool effects are suppressed within a turn, and a turn has a
+  wall-clock deadline.
+- **Campaign generator:** one structured call, retried once with validation
+  feedback if references or ids are malformed.
 - **World agent:** only on a manual "Advance world" action or when the narrator
   asks for an offscreen turn. It does not narrate the player's scene.
 - **Continuity auditor:** on demand. Advisory only; it has no write tools.
@@ -191,8 +199,8 @@ uv run mypy
 cd web && npm run check && npm run build
 ```
 
-The automated suite uses only the fake provider. It makes no network calls and
-requires no credentials.
+The automated suite uses the fake provider and a stub OpenAI client. It makes no
+network calls and requires no credentials.
 
 ## Not in this slice
 
@@ -200,6 +208,6 @@ requires no credentials.
 - Campaign export/import and deletion confirmation in the UI.
 - Automatic time-threshold world turns; world evolution is manual or
   narrator-requested.
-- Semantic secret-leak detection. The current check is verbatim matching against
-  GM fact text, GM prose blocks, and hidden NPC names.
+- Semantic secret-leak detection. The check is verbatim matching against GM fact
+  text, GM prose, and hidden names, followed by one narrator repair pass.
 - Multi-user or remote access. This is a localhost, single-user harness.

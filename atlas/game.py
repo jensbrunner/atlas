@@ -120,12 +120,24 @@ class CampaignService:
             ctx = ToolContext(state=state, rng=self.rng_factory())
             narrator = Narrator(self.provider, self.registry, self.settings)
             reply = narrator.play(state, action, ctx)
+            total_usage = reply.usage
             self._account(reply.usage)
 
             narration = reply.text.strip()
             if not narration:
                 raise EmptyNarration("narrator returned empty narration")
-            self._check_leaks(state, narration)
+            try:
+                self._check_leaks(state, narration)
+            except LeakDetected as leak:
+                repaired = narrator.repair(state, action, narration, leak.matched, ctx)
+                total_usage = add_usage(total_usage, repaired.usage)
+                self._account(repaired.usage)
+                narration = repaired.text.strip()
+                if not narration:
+                    raise EmptyNarration(
+                        "narrator returned empty narration after leak repair"
+                    ) from None
+                self._check_leaks(state, narration)
             validate_state(state)
 
             turn_no = state.meta.turn_count + 1
@@ -137,7 +149,7 @@ class CampaignService:
                 world_time_before=time_before,
                 world_time_after=state.meta.world_time_minutes,
                 model=self.settings.narrator_model,
-                usage=reply.usage,
+                usage=total_usage,
                 rolls=ctx.rolls,
                 changes=ctx.changes,
                 narration=narration,
@@ -158,7 +170,7 @@ class CampaignService:
                 narration=narration,
                 rolls=ctx.rolls,
                 changes=ctx.changes,
-                usage=reply.usage,
+                usage=total_usage,
                 world_turn_requested=world_turn_requested,
                 player=player_view(self.store.load(campaign_id)),
             )

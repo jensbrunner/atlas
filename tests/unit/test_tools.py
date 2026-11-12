@@ -97,3 +97,69 @@ def test_record_and_reveal_fact(tmp_path: Path) -> None:
 
     registry.execute(ctx, "reveal_fact", {"fact": fact_id})
     assert state.world.facts[fact_id].visibility == "player"
+
+
+def test_set_scene_reveals_a_hidden_location(tmp_path: Path) -> None:
+    state = _state(tmp_path)
+    registry = build_default_registry()
+    ctx = _context(state)
+    assert state.world.locations["council_hall"].player_known is False
+
+    result = registry.execute(ctx, "set_scene", {"location": "council_hall"})
+
+    assert state.world.current_location == "council_hall"
+    assert state.world.locations["council_hall"].player_known is True
+    assert "discovered" in result
+
+
+def test_create_location_npc_and_discovery(tmp_path: Path) -> None:
+    state = _state(tmp_path)
+    registry = build_default_registry()
+    ctx = _context(state)
+
+    created = registry.execute(
+        ctx,
+        "create_location",
+        {
+            "id": "old_tallowhouse",
+            "name": "The Old Tallowhouse",
+            "description": "A boarded warehouse that still smells of rendered fat.",
+            "player_known": False,
+        },
+    )
+    assert "Created location old_tallowhouse" in created
+    assert state.world.locations["old_tallowhouse"].player_known is False
+
+    registry.execute(ctx, "set_scene", {"location": "old_tallowhouse"})
+    assert state.world.locations["old_tallowhouse"].player_known is True
+
+    registry.execute(
+        ctx,
+        "create_npc",
+        {
+            "id": "pell",
+            "name": "Pell Sorn",
+            "location": "old_tallowhouse",
+            "description": "A captain with rain in his boots and a bruised cheek.",
+            "player_known": False,
+            "goals": ["Get the cargo off the books."],
+            "plans": ["Move the cogs before the next tide."],
+            "knows": ["fact_hidden_debt"],
+            "secret": "Pell signed the false manifest under pressure.",
+        },
+    )
+    npc = state.npcs["pell"]
+    assert npc.plans == ["Move the cogs before the next tide."]
+    assert npc.knows == ["fact_hidden_debt"]
+    assert npc.player_known is False
+    assert "false manifest" in state.npc_bodies["pell"]
+
+    registry.execute(ctx, "update_npc", {"npc": "pell", "add_plan": "Bribe the watchman."})
+    assert "Bribe the watchman." in npc.plans
+
+    registry.execute(ctx, "reveal_npc", {"npc": "pell"})
+    assert npc.player_known is True
+
+    state.world.factions["town_council"].player_known = False
+    registry.execute(ctx, "reveal_faction", {"faction": "town_council"})
+    assert state.world.factions["town_council"].player_known is True

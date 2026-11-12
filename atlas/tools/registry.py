@@ -10,9 +10,20 @@ from atlas.tools.context import ToolContext, ToolError
 from atlas.tools.dice import handle_roll
 from atlas.tools.facts import handle_append_journal, handle_record_fact, handle_reveal_fact
 from atlas.tools.inventory import handle_patch_inventory
-from atlas.tools.npcs import handle_update_faction, handle_update_npc
+from atlas.tools.npcs import (
+    handle_create_npc,
+    handle_reveal_faction,
+    handle_reveal_npc,
+    handle_update_faction,
+    handle_update_npc,
+)
 from atlas.tools.time import handle_advance_time
-from atlas.tools.world import handle_request_world_turn, handle_set_scene
+from atlas.tools.world import (
+    handle_create_location,
+    handle_request_world_turn,
+    handle_reveal_location,
+    handle_set_scene,
+)
 
 ToolHandler = Callable[[ToolContext, dict[str, Any]], str]
 
@@ -139,19 +150,50 @@ SPECS: list[ToolSpec] = [
     ),
     ToolSpec(
         name="update_npc",
-        description="Change an NPC's location, attitude, goals, health, or knowledge.",
+        description="Change an NPC's location, attitude, goals, plans, health, or knowledge.",
         parameters=_object(
             {
                 "npc": {"type": "string"},
                 "location": {"type": "string"},
                 "attitude": {"type": "string"},
                 "add_goal": {"type": "string"},
+                "add_plan": {"type": "string"},
                 "add_knowledge": {"type": "string"},
                 "health_delta": {"type": "integer"},
             },
             ["npc"],
         ),
         handler=handle_update_npc,
+    ),
+    ToolSpec(
+        name="create_npc",
+        description=(
+            "Introduce a new NPC the fiction needs. Give them a goal and a current "
+            "plan; use a GM-only secret if they are hiding something."
+        ),
+        parameters=_object(
+            {
+                "id": {"type": "string", "description": "Stable lowercase id."},
+                "name": {"type": "string"},
+                "location": {"type": "string"},
+                "description": {"type": "string"},
+                "attitude": {"type": "string"},
+                "player_known": {"type": "boolean"},
+                "goals": {"type": "array", "items": {"type": "string"}},
+                "plans": {"type": "array", "items": {"type": "string"}},
+                "knows": {"type": "array", "items": {"type": "string"}},
+                "secret": {"type": "string"},
+                "health_max": {"type": "integer", "minimum": 1, "maximum": 20},
+            },
+            ["name"],
+        ),
+        handler=handle_create_npc,
+    ),
+    ToolSpec(
+        name="reveal_npc",
+        description="Mark an existing hidden NPC as known to the player.",
+        parameters=_object({"npc": {"type": "string"}}, ["npc"]),
+        handler=handle_reveal_npc,
     ),
     ToolSpec(
         name="update_faction",
@@ -169,10 +211,17 @@ SPECS: list[ToolSpec] = [
         handler=handle_update_faction,
     ),
     ToolSpec(
+        name="reveal_faction",
+        description="Mark an existing hidden faction as known to the player.",
+        parameters=_object({"faction": {"type": "string"}}, ["faction"]),
+        handler=handle_reveal_faction,
+    ),
+    ToolSpec(
         name="record_fact",
         description=(
-            "Record a canonical fact. Use visibility 'gm' for secrets and 'player' for "
-            "things the player has learned or can observe."
+            "Record a durable canonical fact that must constrain later scenes. Use "
+            "visibility 'gm' for secrets and 'player' for things the player has "
+            "learned. Do not record transient scene description or every observation."
         ),
         parameters=_object(
             {
@@ -217,6 +266,30 @@ SPECS: list[ToolSpec] = [
             ["location"],
         ),
         handler=handle_set_scene,
+    ),
+    ToolSpec(
+        name="create_location",
+        description=(
+            "Add a new place to the world when the fiction moves somewhere not yet "
+            "in canon. Set player_known false only for places the player has not found."
+        ),
+        parameters=_object(
+            {
+                "id": {"type": "string", "description": "Stable lowercase id."},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "player_known": {"type": "boolean"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+            ["id", "name"],
+        ),
+        handler=handle_create_location,
+    ),
+    ToolSpec(
+        name="reveal_location",
+        description="Mark an existing hidden location as known to the player.",
+        parameters=_object({"location": {"type": "string"}}, ["location"]),
+        handler=handle_reveal_location,
     ),
     ToolSpec(
         name="request_world_turn",

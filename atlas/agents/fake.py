@@ -69,6 +69,7 @@ def default_seed(prompt: str) -> dict[str, Any]:
             "half empty, and the people who are still out watch you the way they "
             "watch weather."
         ),
+        "start_minute": 7 * 60,
         "current_location": "market_square",
         "character": {
             "name": "Ren",
