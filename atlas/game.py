@@ -110,7 +110,13 @@ class CampaignService:
 
     # -- play ----------------------------------------------------------
 
-    def play_turn(self, campaign_id: str, action: str) -> TurnResult:
+    def play_turn(
+        self,
+        campaign_id: str,
+        action: str,
+        *,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> TurnResult:
         action = action.strip()
         if not action:
             raise ValueError("action cannot be empty")
@@ -122,7 +128,7 @@ class CampaignService:
             time_before = state.meta.world_time_minutes
             ctx = ToolContext(state=state, rng=self.rng_factory())
             narrator = Narrator(self.provider, self.registry, self.settings)
-            reply = narrator.play(state, action, ctx)
+            reply = narrator.play(state, action, ctx, on_event=on_event)
             total_usage = reply.usage
             self._account(reply.usage)
 
@@ -132,7 +138,16 @@ class CampaignService:
             try:
                 self._check_leaks(state, narration)
             except LeakDetected as leak:
-                repaired = narrator.repair(state, action, narration, leak.matched, ctx)
+                if on_event is not None:
+                    on_event({"type": "status", "stage": "repairing"})
+                repaired = narrator.repair(
+                    state,
+                    action,
+                    narration,
+                    leak.matched,
+                    ctx,
+                    on_event=on_event,
+                )
                 total_usage = add_usage(total_usage, repaired.usage)
                 self._account(repaired.usage)
                 narration = repaired.text.strip()
@@ -141,6 +156,8 @@ class CampaignService:
                         "narrator returned empty narration after leak repair"
                     ) from None
                 self._check_leaks(state, narration)
+            if on_event is not None:
+                on_event({"type": "status", "stage": "saving"})
             validate_state(state)
 
             turn_no = state.meta.turn_count + 1

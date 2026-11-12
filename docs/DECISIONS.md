@@ -107,8 +107,8 @@ evidence. It has no write tools. It is invoked on demand, not every turn.
 ## ADR-014 — Svelte 5 + Vite, served by FastAPI
 
 Accepted. The frontend is a single-page Svelte 5 app with no UI framework. Vite
-proxies `/api` in development; FastAPI serves `web/dist` in production. No
-streaming in this slice.
+proxies `/api` in development; FastAPI serves `web/dist` in production. Turns
+stream progress events over SSE; narration is not token-streamed.
 
 ## ADR-015 — Delete the old engine
 
@@ -159,9 +159,17 @@ names already present in the data directory and is told not to reuse them. This
 keeps a stable of local campaigns from feeling like the same cast under different
 titles.
 
+## ADR-022 — Stream turn progress, not prose
+
+Accepted. `/turns/stream` runs the atomic turn in a worker thread and emits SSE
+`status` and `tool` events, followed by a `done` event with the full result. The
+browser shows what the narrator is doing and an elapsed timer. Prose tokens are
+not streamed because a draft can be rejected by the leak scan or repair pass, and
+the turn must remain all-or-nothing.
+
 ## Deferred decisions
 
-- Streaming narration over SSE.
+- Token-level narration streaming.
 - Export/import of campaign directories.
 - Automatic world-turn thresholds based on world time.
 - Retrieval over long campaigns instead of a recent-turn window.

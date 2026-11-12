@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { PlayerView } from '../lib/api'
 
-  let { view, pending = false }: { view: PlayerView; pending?: boolean } = $props()
+  let {
+    view,
+    pending = false,
+    status = '',
+  }: { view: PlayerView; pending?: boolean; status?: string } = $props()
 
   let scroller = $state<HTMLDivElement | null>(null)
   let seconds = $state(0)
@@ -53,7 +57,7 @@
   {#if pending}
     <div class="thinking">
       <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span>The world is considering its answer…</span>
+      <span>{status || 'The world is considering its answer…'}</span>
       {#if seconds >= 5}<span class="elapsed">{seconds}s</span>{/if}
     </div>
   {/if}

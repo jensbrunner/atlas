@@ -3,10 +3,11 @@
   import {
     auditCampaign,
     getPlayer,
-    playTurn,
+    playTurnStream,
     worldTurn,
     type AuditFinding,
     type PlayerView,
+    type TurnStreamEvent,
   } from '../lib/api'
   import ActionComposer from '../components/ActionComposer.svelte'
   import AuditPanel from '../components/AuditPanel.svelte'
@@ -25,6 +26,7 @@
   let view = $state<PlayerView | null>(null)
   let error = $state<string | null>(null)
   let pending = $state(false)
+  let status = $state('')
   let worldPending = $state(false)
   let tab = $state<Tab>('character')
   let gmOpen = $state(false)
@@ -49,16 +51,69 @@
     }
   })
 
+  function streamLabel(event: TurnStreamEvent): string {
+    if (event.type === 'tool') {
+      switch (event.name) {
+        case 'roll':
+          return 'Rolling the dice…'
+        case 'patch_inventory':
+          return 'Updating what you carry…'
+        case 'patch_character':
+          return 'Taking stock of the consequences…'
+        case 'patch_clock':
+        case 'create_clock':
+          return 'The pressure shifts…'
+        case 'advance_time':
+          return 'Letting time pass…'
+        case 'update_npc':
+        case 'create_npc':
+          return 'Someone in the world moves…'
+        case 'update_faction':
+        case 'reveal_faction':
+          return 'A faction makes its move…'
+        case 'record_fact':
+        case 'reveal_fact':
+          return 'Remembering what matters…'
+        case 'create_location':
+        case 'reveal_location':
+        case 'set_scene':
+          return 'The scene opens…'
+        case 'append_journal':
+          return 'Writing the journal…'
+        case 'request_world_turn':
+          return 'The world stirs…'
+        default:
+          return 'The world is moving…'
+      }
+    }
+    switch (event.stage) {
+      case 'reading':
+        return 'Reading the scene…'
+      case 'thinking':
+        return 'Weighing what happens next…'
+      case 'repairing':
+        return 'Keeping a secret hidden…'
+      case 'saving':
+        return 'Settling the turn…'
+      default:
+        return 'The world is considering its answer…'
+    }
+  }
+
   async function send(action: string) {
     pending = true
+    status = 'Reading the scene…'
     error = null
     try {
-      const result = await playTurn(campaignId, action)
+      const result = await playTurnStream(campaignId, action, (event) => {
+        status = streamLabel(event)
+      })
       view = result.player
     } catch (exc) {
       error = exc instanceof Error ? exc.message : String(exc)
     } finally {
       pending = false
+      status = ''
     }
   }
 
@@ -124,7 +179,7 @@
   {#if view}
     <div class="layout">
       <main>
-        <NarrationPane {view} {pending} />
+        <NarrationPane {view} {pending} {status} />
         <ActionComposer {pending} onSend={send} />
       </main>
 

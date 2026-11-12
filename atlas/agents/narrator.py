@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from atlas.agents.loop import run_tool_loop
+from atlas.agents.loop import EventCallback, run_tool_loop
 from atlas.agents.prompts import load_prompt
 from atlas.agents.types import AgentReply, AgentRequest, Message, Provider
 from atlas.config import Settings
@@ -16,7 +16,14 @@ class Narrator:
         self.registry = registry
         self.settings = settings
 
-    def play(self, state: CampaignState, action: str, ctx: ToolContext) -> AgentReply:
+    def play(
+        self,
+        state: CampaignState,
+        action: str,
+        ctx: ToolContext,
+        *,
+        on_event: EventCallback | None = None,
+    ) -> AgentReply:
         request = AgentRequest(
             model=self.settings.narrator_model,
             instructions=load_prompt("narrator"),
@@ -41,6 +48,7 @@ class Narrator:
             ctx,
             max_iterations=self.settings.max_tool_iterations,
             deadline_seconds=self.settings.turn_deadline_seconds,
+            on_event=on_event,
         )
 
     def repair(
@@ -50,6 +58,8 @@ class Narrator:
         draft: str,
         matched: str,
         ctx: ToolContext,
+        *,
+        on_event: EventCallback | None = None,
     ) -> AgentReply:
         """Rewrite or reveal after the leak scan rejects a draft."""
 
@@ -86,4 +96,5 @@ class Narrator:
             ctx,
             max_iterations=self.settings.max_tool_iterations,
             deadline_seconds=self.settings.turn_deadline_seconds,
+            on_event=on_event,
         )

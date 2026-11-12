@@ -75,7 +75,9 @@ web/
 
 ## Turn lifecycle
 
-1. `POST /api/campaigns/{id}/turns` with `{action}`.
+1. `POST /api/campaigns/{id}/turns` with `{action}`. The browser uses
+   `/turns/stream`, which runs the same lifecycle in a worker thread and emits
+   `status`/`tool` SSE events before the final `done` result.
 2. Acquire the per-campaign in-process lock.
 3. Load the campaign directory into a `CampaignState` in memory.
 4. Build the GM packet: campaign premise, character, world, NPCs, clocks, facts,
@@ -188,5 +190,5 @@ known entity references, monotonic world time, valid fact/NPC references.
 Svelte 5 + Vite + TypeScript, no SvelteKit. The play view is a two-column layout:
 transcript and composer on the left, tabbed panels on the right. The GM view and
 audit are modal panels. Development uses a Vite proxy to FastAPI; production
-serves `web/dist` from FastAPI. There is no streaming in this slice: narration
-appears after the turn commits.
+serves `web/dist` from FastAPI. Turns use SSE progress events and an elapsed
+timer; narration appears when the turn commits, not token by token.

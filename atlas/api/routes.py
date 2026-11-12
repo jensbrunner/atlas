@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
+import threading
+from collections.abc import Iterator
+from queue import Queue
 from typing import Any
 
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 
 from atlas.agents.campaign import CampaignRequest
 from atlas.api.schemas import CreateCampaignBody, PlayTurnBody, WorldTurnBody
@@ -116,6 +121,55 @@ def get_turns(
 def play_turn(request: Request, campaign_id: str, body: PlayTurnBody) -> dict[str, Any]:
     result = service_from(request).play_turn(campaign_id, body.action)
     return result.as_dict()
+
+
+@router.post("/campaigns/{campaign_id}/turns/stream")
+def play_turn_stream(
+    request: Request,
+    campaign_id: str,
+    body: PlayTurnBody,
+) -> StreamingResponse:
+    """Run a turn in a worker thread and stream progress events to the browser."""
+
+    service = service_from(request)
+    service.get(campaign_id)  # fail with the normal 404 before the stream starts
+    events: Queue[dict[str, Any] | None] = Queue()
+
+    def emit(event: dict[str, Any]) -> None:
+        events.put(event)
+
+    def run() -> None:
+        try:
+            result = service.play_turn(campaign_id, body.action, on_event=emit)
+            events.put({"type": "done", "result": result.as_dict()})
+        except Exception as exc:  # the stream may already have sent headers
+            events.put(
+                {
+                    "type": "error",
+                    "code": type(exc).__name__,
+                    "message": str(exc),
+                }
+            )
+        finally:
+            events.put(None)
+
+    threading.Thread(target=run, daemon=True).start()
+
+    def stream() -> Iterator[str]:
+        while True:
+            event = events.get()
+            if event is None:
+                break
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/campaigns/{campaign_id}/world-turn")

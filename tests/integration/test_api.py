@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -142,3 +143,29 @@ def test_api_leak_error_does_not_echo_the_secret(tmp_path: Path) -> None:
         assert secret not in response.text
         after = client.get(f"/api/campaigns/{campaign_id}/player").json()
         assert after["campaign"]["turn_count"] == 0
+
+
+def test_streaming_turn_reports_progress_and_result(tmp_path: Path) -> None:
+    provider = fake_provider(
+        replies=[
+            AgentReply(tool_calls=[tool("advance_time", "c1", minutes=5)]),
+            AgentReply(text="Five minutes pass."),
+        ]
+    )
+    with _client(tmp_path, provider) as client:
+        created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
+        campaign_id = created.json()["campaign"]["id"]
+
+        with client.stream(
+            "POST",
+            f"/api/campaigns/{campaign_id}/turns/stream",
+            json={"action": "wait"},
+        ) as response:
+            assert response.status_code == 200
+            text = "".join(response.iter_text())
+
+        events = [json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
+        assert any(event["type"] == "tool" and event["name"] == "advance_time" for event in events)
+        done = next(event for event in events if event["type"] == "done")
+        assert done["result"]["turn"] == 1
+        assert done["result"]["narration"] == "Five minutes pass."

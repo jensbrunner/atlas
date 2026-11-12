@@ -72,11 +72,12 @@ them.
 ### API and UI
 
 - FastAPI endpoints for health, config, campaign CRUD, player view, GM view,
-  turns, world turn, and audit. Typed error envelope with stable codes.
+  turns, streamed turn progress, world turn, and audit. Typed error envelope with
+  stable codes.
 - Svelte 5 + Vite + TypeScript UI: campaign list with delete confirmation,
   creation form, play view, narration transcript, action composer, character
   (with bio)/inventory/world/clocks/journal panels, GM modal with NPC plans and
-  faction secrets, audit modal.
+  faction secrets, audit modal. Turns stream progress stages and an elapsed timer.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -87,7 +88,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 67 passed |
+| `uv run pytest -q` | 68 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 65 files already formatted |
 | `uv run mypy` | no issues in 55 source files |
@@ -129,7 +130,8 @@ network calls and need no credentials. Coverage includes:
   structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an
   explicit data directory;
-- HTTP round-trip, 404, 422 validation, deletion.
+- HTTP round-trip, 404, 422 validation, deletion;
+- streamed turn events ending in the committed turn result.
 
 Manual smoke test (fake provider, built frontend):
 
@@ -158,12 +160,15 @@ Live OpenAI smoke test (GPT-6 Luna):
   produced no duplicate changes.
 - One live world turn took 28.7 s and advanced hidden and visible clocks; the
   audit returned zero findings in 1.8 s.
+- A streamed live turn reported `reading → roll → advance_time → reveal_location →
+  set_scene → update_npc → saving → done` in 38.1 s and committed the final
+  result with a successful roll and new discovery.
 - Restarting the server preserved campaigns, turns, world time, and transcripts.
 
 ## Known limitations
 
-- No narration streaming; the UI waits for a committed turn (live turns have
-  taken roughly 17–45 s).
+- Narration is not token-streamed. The UI receives progress stages and then the
+  committed turn; live turns have taken roughly 17–55 s.
 - No campaign export/import.
 - World turns are manual or narrator-requested; no time-threshold automation.
 - Context is a recent-turn window plus budgets, not retrieval over long
@@ -181,8 +186,8 @@ Live OpenAI smoke test (GPT-6 Luna):
 
 1. Add per-model price presets so `ATLAS_SESSION_USD_LIMIT` is meaningful without
    hand-entering rates.
-2. Add SSE streaming for narration while keeping commit-time atomicity.
-3. Add UI deletion with confirmation and campaign export/import of the directory.
+2. Add token-level narration streaming while preserving commit-time atomicity.
+3. Add campaign export/import.
 4. Replace verbatim leak matching with a model-side redaction pass or embedding
    similarity, then keep the verbatim check as a fast path.
 5. Add retrieval or rolling recap over old turns once campaigns run long enough

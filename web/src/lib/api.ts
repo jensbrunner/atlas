@@ -208,11 +208,85 @@ export function getGm(campaignId: string): Promise<GmView> {
   return request(`/campaigns/${campaignId}/gm`)
 }
 
+export interface TurnStreamEvent {
+  type: 'status' | 'tool' | 'done' | 'error'
+  stage?: 'reading' | 'thinking' | 'repairing' | 'saving'
+  name?: string
+  result?: TurnResult
+  message?: string
+  code?: string
+}
+
 export function playTurn(campaignId: string, action: string): Promise<TurnResult> {
   return request(`/campaigns/${campaignId}/turns`, {
     method: 'POST',
     body: JSON.stringify({ action }),
   })
+}
+
+export async function playTurnStream(
+  campaignId: string,
+  action: string,
+  onEvent: (event: TurnStreamEvent) => void,
+): Promise<TurnResult> {
+  const response = await fetch(`/api/campaigns/${campaignId}/turns/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify({ action }),
+  })
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const body = await response.json()
+      if (body?.error?.message) message = body.error.message
+    } catch {
+      // keep the status message
+    }
+    throw new Error(message)
+  }
+  if (!response.body) throw new Error('This browser cannot stream the turn')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: TurnResult | null = null
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary >= 0) {
+        const chunk = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        const payload = chunk
+          .split('\n')
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trim())
+          .join('\n')
+        if (payload) {
+          const event = JSON.parse(payload) as TurnStreamEvent
+          onEvent(event)
+          if (event.type === 'error') {
+            throw new Error(event.message || 'The turn failed')
+          }
+          if (event.type === 'done' && event.result) {
+            result = event.result
+          }
+        }
+        boundary = buffer.indexOf('\n\n')
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  if (!result) throw new Error('The turn stream ended without a result')
+  return result
 }
 
 export function worldTurn(campaignId: string, reason: string): Promise<{ player: PlayerView }> {

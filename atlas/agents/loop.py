@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import replace
+from typing import Any
 
 from atlas.agents.types import AgentError, AgentReply, AgentRequest, Message, Provider, add_usage
 from atlas.state.schemas import Usage
@@ -10,6 +12,7 @@ from atlas.tools.context import ToolContext
 from atlas.tools.registry import ToolRegistry
 
 _DESCRIPTIVE_ARGUMENTS = {"reason"}
+EventCallback = Callable[[dict[str, Any]], None]
 
 
 def _call_key(name: str, arguments: dict[str, object]) -> tuple[str, str]:
@@ -33,6 +36,7 @@ def run_tool_loop(
     *,
     max_iterations: int,
     deadline_seconds: float | None = None,
+    on_event: EventCallback | None = None,
 ) -> AgentReply:
     messages: list[Message] = list(request.messages)
     usage = Usage()
@@ -40,10 +44,17 @@ def run_tool_loop(
     started = time.monotonic()
     applied: set[tuple[str, str]] = set()
 
-    for _ in range(max_iterations):
+    for iteration in range(max_iterations):
         if deadline_seconds is not None and time.monotonic() - started > deadline_seconds:
             raise AgentError(
                 f"turn exceeded its {deadline_seconds:.0f}s deadline; no changes were saved"
+            )
+        if on_event is not None:
+            on_event(
+                {
+                    "type": "status",
+                    "stage": "reading" if iteration == 0 else "thinking",
+                }
             )
         reply = provider.complete(replace(request, messages=messages))
         usage = add_usage(usage, reply.usage)
@@ -54,6 +65,8 @@ def run_tool_loop(
 
         messages.append(Message(role="assistant", content=reply.text, tool_calls=reply.tool_calls))
         for call in reply.tool_calls:
+            if on_event is not None:
+                on_event({"type": "tool", "name": call.name})
             key = _call_key(call.name, call.arguments)
             if key in applied:
                 result = (

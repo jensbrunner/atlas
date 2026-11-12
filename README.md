@@ -170,6 +170,7 @@ GET    /api/campaigns/{id}/player
 GET    /api/campaigns/{id}/gm
 GET    /api/campaigns/{id}/turns
 POST   /api/campaigns/{id}/turns      {action}
+POST   /api/campaigns/{id}/turns/stream {action}   # SSE progress + final result
 POST   /api/campaigns/{id}/world-turn {reason?}
 POST   /api/campaigns/{id}/audit
 ```
@@ -205,7 +206,8 @@ network calls and requires no credentials.
 
 ## Not in this slice
 
-- Narration streaming (the UI waits for a committed turn).
+- Token-by-token narration streaming. The UI streams progress events (reading,
+  rolling, updating, saving) and then commits the finished turn atomically.
 - Campaign export/import.
 - Automatic time-threshold world turns; world evolution is manual or
   narrator-requested.
