@@ -10,7 +10,9 @@ solution.
 - A live situation that is already in motion when the player arrives.
 - 3–6 NPCs with goals, concrete current plans, knowledge, and at least one secret
   each. Give them names, roles, and a reason to care.
-- 2–4 factions or institutions with goals and resources.
+- 2–4 factions or institutions with goals and resources. Local authorities,
+  guilds, and institutions the player would plausibly know should start
+  `player_known: true`; reserve false for concealed organizations.
 - 2–4 clocks representing pressure that will escalate if nobody acts.
 - At least two hidden facts (`visibility: gm`) and two player-visible facts.
 - One player character appropriate to the premise, with inventory and a reason to
@@ -29,7 +31,10 @@ opening.
 
 Use stable lowercase ids with underscores for locations, factions, clocks, NPCs,
 and facts. Each NPC's `knows` array must contain fact ids from your `facts` array
-(never fact prose). Set `player_known: false` for locations, factions, or NPCs the
-player should not know about yet; only the opening scene's people and places
-should start known. The narrator will reveal the rest when the fiction reaches
-them.
+(never fact prose). Set `player_known: false` for locations or NPCs the player
+should not know about yet; only the opening scene's people and places should
+start known. The narrator will reveal the rest when the fiction reaches them.
+
+Invent names with the texture of this specific place. Avoid a stock fantasy name
+pool, repeated first names, and near-duplicates across NPCs. Let people differ in
+age, work, manner, and voice.

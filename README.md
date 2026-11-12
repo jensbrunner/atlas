@@ -23,6 +23,7 @@ no story branches in the engine, and no database.
   invalid change leaves the files untouched.
 - The narrator can introduce new places and people, and reveal hidden ones when
   the fiction reaches them.
+- New campaigns are told to avoid names already used in your previous campaigns.
 - If a draft leaks hidden material, the harness gives the narrator one repair
   pass: reveal what was genuinely discovered, or rewrite without it.
 - The server renders a player view by stripping GM-only material from the same
@@ -205,7 +206,7 @@ network calls and requires no credentials.
 ## Not in this slice
 
 - Narration streaming (the UI waits for a committed turn).
-- Campaign export/import and deletion confirmation in the UI.
+- Campaign export/import.
 - Automatic time-threshold world turns; world evolution is manual or
   narrator-requested.
 - Semantic secret-leak detection. The check is verbatim matching against GM fact

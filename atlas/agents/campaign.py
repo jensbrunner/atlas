@@ -176,16 +176,25 @@ class CampaignGenerator:
         self.provider = provider
         self.settings = settings
 
-    def generate(self, request: CampaignRequest) -> tuple[CampaignSeed, Usage]:
-        user_input = "\n".join(
-            [
-                f"Title hint: {request.title or 'none'}",
-                f"Prompt: {request.prompt or 'Invent a fresh campaign.'}",
-                f"Genre: {request.genre or 'your choice'}",
-                f"Tone: {request.tone or 'your choice'}",
-                "Create the campaign now. Fill every field that matters.",
-            ]
-        )
+    def generate(
+        self,
+        request: CampaignRequest,
+        *,
+        avoid_names: list[str] | None = None,
+    ) -> tuple[CampaignSeed, Usage]:
+        lines = [
+            f"Title hint: {request.title or 'none'}",
+            f"Prompt: {request.prompt or 'Invent a fresh campaign.'}",
+            f"Genre: {request.genre or 'your choice'}",
+            f"Tone: {request.tone or 'your choice'}",
+        ]
+        names = sorted({name.strip() for name in (avoid_names or []) if name.strip()})
+        if names:
+            lines.append(
+                "Do not reuse these names from earlier campaigns: " + ", ".join(names[:80])
+            )
+        lines.append("Create the campaign now. Fill every field that matters.")
+        user_input = "\n".join(lines)
         total_usage = Usage()
         last_error: ValidationError | None = None
         for attempt in range(2):

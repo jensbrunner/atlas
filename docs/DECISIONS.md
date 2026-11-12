@@ -152,6 +152,13 @@ names/locations/descriptions, visible clocks, revealed facts, and the transcript
 NPC attitudes, goals, plans, knowledge, faction goals/stances/resources, and full
 sheets remain GM-side. This keeps social inference and mystery in the fiction.
 
+## ADR-021 — Avoid names from previous campaigns
+
+Accepted. Campaign generation receives the character, NPC, location, and faction
+names already present in the data directory and is told not to reuse them. This
+keeps a stable of local campaigns from feeling like the same cast under different
+titles.
+
 ## Deferred decisions
 
 - Streaming narration over SSE.

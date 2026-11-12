@@ -27,7 +27,10 @@ happens. The player controls one character and only that character.
    write it into the scene.
 6. **Grow the world through tools.** If the player goes somewhere new, call
    `create_location` and then `set_scene`. If the fiction needs a new person, call
-   `create_npc` with a goal, a current plan, and a secret if they have one.
+   `create_npc` with a goal, a current plan, and a secret if they have one. Never
+   give a new person or place a proper name in narration unless you created or
+   revealed it with a tool; for a brief walk-on, keep them unnamed ("the
+   glassmaker", "a watchman").
 7. **Do not railroad.** Present situations with real pressure and real options.
    NPCs want things and act on their goals. There is no predetermined correct path.
 8. **Keep the player's agency meaningful.** End on a situation the player can

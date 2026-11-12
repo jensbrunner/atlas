@@ -100,7 +100,10 @@ class CampaignService:
     def create_campaign(self, request: CampaignRequest) -> tuple[CampaignState, Usage]:
         with self._create_lock:
             generator = CampaignGenerator(self.provider, self.settings)
-            seed, usage = generator.generate(request)
+            seed, usage = generator.generate(
+                request,
+                avoid_names=self._existing_names(),
+            )
             state = self.store.create(seed, narrator_model=self.settings.narrator_model)
             self._account(usage)
             return state, usage
@@ -225,6 +228,19 @@ class CampaignService:
         }
 
     # -- internals -----------------------------------------------------
+
+    def _existing_names(self, limit: int = 25) -> list[str]:
+        names: set[str] = set()
+        for meta in self.store.list_campaigns()[:limit]:
+            try:
+                state = self.store.load(meta.id)
+            except Exception:
+                continue
+            names.add(state.character.name)
+            names.update(npc.name for npc in state.npcs.values())
+            names.update(location.name for location in state.world.locations.values())
+            names.update(faction.name for faction in state.world.factions.values())
+        return sorted(name for name in names if name.strip())
 
     def _lock(self, campaign_id: str) -> threading.Lock:
         return self._locks[campaign_id]

@@ -11,6 +11,18 @@ def _clip(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
+def campaign_section(state: CampaignState) -> str:
+    lines = [
+        f"Title: {state.meta.title}",
+        f"Genre: {state.meta.genre or 'unspecified'}",
+        f"Tone: {state.meta.tone or 'unspecified'}",
+        f"Premise: {state.meta.premise}",
+    ]
+    if state.campaign_body.strip():
+        lines.append(f"Notes: {_clip(state.campaign_body, 2_000)}")
+    return "\n".join(lines)
+
+
 def character_sheet(state: CampaignState) -> str:
     character = state.character
     inventory = (
@@ -43,6 +55,11 @@ def character_sheet(state: CampaignState) -> str:
             ),
             f"Conditions: {conditions}",
             f"Inventory: {inventory}",
+            (
+                f"Background: {_clip(state.character_body, 1_500)}"
+                if state.character_body.strip()
+                else "Background: unspecified"
+            ),
         ]
     )
 
@@ -150,10 +167,7 @@ def build_turn_prompt(
     )
     sections = [
         "# Campaign",
-        f"Title: {state.meta.title}",
-        f"Genre: {state.meta.genre or 'unspecified'}",
-        f"Tone: {state.meta.tone or 'unspecified'}",
-        f"Premise: {state.meta.premise}",
+        campaign_section(state),
         "",
         "# Player character",
         character_sheet(state),
@@ -189,10 +203,7 @@ def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 
         f"Reason: {reason or 'time has passed and the world should move on its own.'}",
         "",
         "# Campaign",
-        f"Title: {state.meta.title}",
-        f"Genre: {state.meta.genre or 'unspecified'}",
-        f"Tone: {state.meta.tone or 'unspecified'}",
-        f"Premise: {state.meta.premise}",
+        campaign_section(state),
         "",
         "# World",
         world_section(state),
@@ -219,7 +230,7 @@ def build_world_prompt(state: CampaignState, reason: str, *, char_budget: int = 
 def build_audit_prompt(state: CampaignState, *, char_budget: int = 40_000) -> str:
     sections = [
         "# Continuity audit",
-        f"Campaign: {state.meta.title}",
+        campaign_section(state),
         "",
         "# Player character",
         character_sheet(state),

@@ -56,7 +56,8 @@ them.
 
 - Campaign generator: forced structured tool call (`submit_campaign`), tolerant of
   volunteered extra fields, retried once with validation feedback. Assigns fact
-  ids and resolves NPC knowledge given as fact prose.
+  ids, resolves NPC knowledge given as fact prose, and avoids names used in
+  previous campaigns.
 - Narrator: one tool loop per player turn, budgeted GM packet, recent-turn window,
   configurable model, wall-clock deadline, and one leak-repair pass.
 - Player-view privacy: NPC attitudes/plans and faction goals/stances never reach
@@ -72,9 +73,10 @@ them.
 
 - FastAPI endpoints for health, config, campaign CRUD, player view, GM view,
   turns, world turn, and audit. Typed error envelope with stable codes.
-- Svelte 5 + Vite + TypeScript UI: campaign list and creation form, play view,
-  narration transcript, action composer, character (with bio)/inventory/world/
-  clocks/journal panels, GM modal with NPC plans and faction secrets, audit modal.
+- Svelte 5 + Vite + TypeScript UI: campaign list with delete confirmation,
+  creation form, play view, narration transcript, action composer, character
+  (with bio)/inventory/world/clocks/journal panels, GM modal with NPC plans and
+  faction secrets, audit modal.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -85,7 +87,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 63 passed |
+| `uv run pytest -q` | 64 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 64 files already formatted |
 | `uv run mypy` | no issues in 54 source files |
@@ -119,7 +121,8 @@ network calls and need no credentials. Coverage includes:
 - world turn clock changes hidden from player narration, world-turn files, and
   world turns loading after a player turn with the same number;
 - auditor findings and empty findings;
-- campaign generation retry with validation feedback, and failure after two tries;
+- campaign generation retry with validation feedback, failure after two tries, and
+  a cross-campaign name avoid-list;
 - OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
   structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an
@@ -159,7 +162,7 @@ Live OpenAI smoke test (GPT-6 Luna):
 
 - No narration streaming; the UI waits for a committed turn (live turns have
   taken roughly 17–45 s).
-- No campaign export/import, and no delete confirmation in the UI.
+- No campaign export/import.
 - World turns are manual or narrator-requested; no time-threshold automation.
 - Context is a recent-turn window plus budgets, not retrieval over long
   campaigns.

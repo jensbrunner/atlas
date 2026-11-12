@@ -5,10 +5,12 @@
     campaigns,
     onSelect,
     onCreate,
+    onDelete,
   }: {
     campaigns: CampaignMeta[]
     onSelect: (id: string) => void
     onCreate: () => void
+    onDelete: (id: string) => void
   } = $props()
 
   function time(minutes: number): string {
@@ -42,22 +44,32 @@
   {:else}
     <div class="grid">
       {#each campaigns as campaign (campaign.id)}
-        <a
-          class="card"
-          href={`#${campaign.id}`}
-          onclick={(event) => {
-            event.preventDefault()
-            onSelect(campaign.id)
-          }}
-        >
-          <h3>{campaign.title}</h3>
-          <p class="premise muted">{campaign.premise || 'No premise recorded.'}</p>
-          <div class="meta">
-            <span>{time(campaign.world_time_minutes)}</span>
-            <span>turn {campaign.turn_count}</span>
-            {#if campaign.genre}<span>{campaign.genre}</span>{/if}
-          </div>
-        </a>
+        <div class="card-wrap">
+          <a
+            class="card"
+            href={`#${campaign.id}`}
+            onclick={(event) => {
+              event.preventDefault()
+              onSelect(campaign.id)
+            }}
+          >
+            <h3>{campaign.title}</h3>
+            <p class="premise muted">{campaign.premise || 'No premise recorded.'}</p>
+            <div class="meta">
+              <span>{time(campaign.world_time_minutes)}</span>
+              <span>turn {campaign.turn_count}</span>
+              {#if campaign.genre}<span>{campaign.genre}</span>{/if}
+            </div>
+          </a>
+          <button
+            class="delete ghost"
+            title="Delete campaign"
+            aria-label={`Delete ${campaign.title}`}
+            onclick={() => onDelete(campaign.id)}
+          >
+            Delete
+          </button>
+        </div>
       {/each}
     </div>
   {/if}
@@ -131,6 +143,35 @@
     text-decoration: none;
     cursor: pointer;
     transition: border-color 120ms ease;
+    flex: 1;
+  }
+
+  .card-wrap {
+    position: relative;
+    display: flex;
+  }
+
+  .delete {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.45rem;
+    opacity: 0;
+    background: rgba(18, 16, 14, 0.86);
+  }
+
+  .card-wrap:hover .delete,
+  .delete:focus-visible {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    .delete {
+      opacity: 1;
+    }
   }
 
   .card:hover {

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import {
     createCampaign,
+    deleteCampaign,
     listCampaigns,
     type CampaignMeta,
     type CreateCampaignBody,
@@ -48,6 +49,18 @@
     void refresh()
   }
 
+  async function remove(id: string) {
+    if (!confirm('Delete this campaign? This cannot be undone.')) return
+    try {
+      await deleteCampaign(id)
+      campaigns = campaigns.filter((campaign) => campaign.id !== id)
+      if (activeId === id) activeId = null
+      error = null
+    } catch (exc) {
+      error = exc instanceof Error ? exc.message : String(exc)
+    }
+  }
+
   onMount(() => {
     void refresh()
   })
@@ -75,6 +88,7 @@
   <CampaignList
     {campaigns}
     onSelect={(id) => (activeId = id)}
+    onDelete={remove}
     onCreate={() => {
       error = null
       creating = true
