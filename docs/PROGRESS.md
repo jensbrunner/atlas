@@ -104,8 +104,9 @@ network calls and need no credentials. Coverage includes:
   bad argument types, fact record/reveal;
 - campaign creation, generated start time and time-of-day label, file layout,
   player/GM separation, restart reload;
-- seed validation: duplicate and slug-colliding ids, slug-normalized location
-  references, fact-id assignment, prose knowledge resolution, unknown draft fields;
+- seed validation: duplicate and slug-colliding ids, distinct character/NPC
+  names, slug-normalized location references, fact-id assignment, prose knowledge
+  resolution, unknown draft fields;
 - store path-traversal rejection and partial directory handling;
 - offline/live configuration gates, default Luna models, key requirements;
 - multi-turn state carry-over, time, inventory, rolls, journal, turn files;

@@ -81,6 +81,11 @@ def test_seed_rejects_duplicate_and_colliding_ids() -> None:
     with pytest.raises(ValidationError, match="fact ids must be unique"):
         CampaignSeed.model_validate(payload)
 
+    payload = seed_payload()
+    payload["npcs"][0]["name"] = payload["character"]["name"]
+    with pytest.raises(ValidationError, match="distinct name"):
+        CampaignSeed.model_validate(payload)
+
 
 def test_seed_location_references_are_slug_normalized(tmp_path: Path) -> None:
     payload = seed_payload()

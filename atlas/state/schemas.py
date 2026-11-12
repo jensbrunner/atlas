@@ -332,6 +332,7 @@ class CampaignSeed(DraftModel):
         for fact in self.facts:
             if fact.id is not None:
                 by_text[_normalize_fact_text(fact.text)] = fact.id
+
         for npc in self.npcs:
             resolved: list[str] = []
             for reference in npc.knows:
@@ -355,6 +356,11 @@ class CampaignSeed(DraftModel):
                     "use a fact id or the exact fact text"
                 )
             npc.knows = resolved
+
+        names = [_normalize_fact_text(self.character.name)]
+        names.extend(_normalize_fact_text(npc.name) for npc in self.npcs)
+        if len(set(names)) != len(names):
+            raise ValueError("the player character and every NPC must have a distinct name")
         return self
 
 
