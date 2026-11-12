@@ -102,9 +102,16 @@ If the model call fails, a tool raises an unexpected error, the leak scan still
 trips after repair, or validation fails, nothing is written. A rejected tool call
 is returned to the model as `ERROR: ...`; it does not abort the turn by itself.
 
-If the narrator calls `request_world_turn`, the player turn is committed first,
-then a world turn runs. A failed world turn never erases the committed player
-turn.
+The player turn is committed first. A world turn then runs when:
+
+- the narrator calls `request_world_turn`;
+- `ATLAS_AUTO_WORLD_TURNS` is enabled and the player-turn interval
+  (`ATLAS_WORLD_TURN_INTERVAL`, default 3) or in-world minute threshold
+  (`ATLAS_WORLD_TURN_MINUTES`, default 120) is reached; or
+- the user presses the manual "World now" override.
+
+The stream emits a `world` stage while it runs. A failed world turn never erases
+the committed player turn.
 
 ## State files
 

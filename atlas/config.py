@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     turn_token_limit: int = Field(default=12_000, ge=1_000)
     turn_deadline_seconds: float = Field(default=180.0, gt=0)
     max_tool_iterations: int = Field(default=8, ge=1, le=32)
+    auto_world_turns: bool = True
+    world_turn_interval: int = Field(default=3, ge=1, le=50)
+    world_turn_minutes: int = Field(default=120, ge=0)
+
     recent_turn_limit: int = Field(default=6, ge=0, le=50)
     context_char_budget: int = Field(default=48_000, ge=4_000)
 

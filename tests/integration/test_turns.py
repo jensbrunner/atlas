@@ -74,3 +74,28 @@ def test_second_turn_uses_persisted_state(tmp_path: Path) -> None:
     assert first.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 10
     assert second.player["campaign"]["world_time_minutes"] == state.meta.world_time_minutes + 30
     assert second.turn == 2
+
+
+def test_world_turn_runs_automatically_after_the_interval(tmp_path: Path) -> None:
+    provider = fake_provider()
+    provider.replies.extend(
+        [
+            AgentReply(text="First beat."),
+            AgentReply(text="Second beat."),
+            AgentReply(text="Third beat."),
+            AgentReply(text="The world moves offscreen."),
+        ]
+    )
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+
+    first = service.play_turn(state.meta.id, "one")
+    second = service.play_turn(state.meta.id, "two")
+    third = service.play_turn(state.meta.id, "three")
+
+    assert first.world_turn_ran is False
+    assert second.world_turn_ran is False
+    assert third.world_turn_ran is True
+
+    reloaded = service.get(state.meta.id)
+    assert any(turn.kind == "world" and turn.turn == 3 for turn in reloaded.turns)

@@ -134,6 +134,7 @@ export interface TurnResult {
   changes: string[]
   usage: { input_tokens: number; output_tokens: number; estimated_usd: number }
   world_turn_requested: boolean
+  world_turn_ran: boolean
   player: PlayerView
 }
 
@@ -276,7 +277,7 @@ export function getGm(campaignId: string): Promise<GmView> {
 
 export interface TurnStreamEvent {
   type: 'status' | 'tool' | 'done' | 'error'
-  stage?: 'reading' | 'thinking' | 'repairing' | 'saving'
+  stage?: 'reading' | 'thinking' | 'repairing' | 'saving' | 'world'
   name?: string
   result?: TurnResult
   message?: string

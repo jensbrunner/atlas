@@ -33,6 +33,7 @@ class TurnResult:
     changes: list[str]
     usage: Usage
     world_turn_requested: bool
+    world_turn_ran: bool
     player: dict[str, Any]
 
     def as_dict(self) -> dict[str, Any]:
@@ -43,6 +44,7 @@ class TurnResult:
             "changes": self.changes,
             "usage": self.usage.model_dump(mode="json"),
             "world_turn_requested": self.world_turn_requested,
+            "world_turn_ran": self.world_turn_ran,
             "player": self.player,
         }
 
@@ -178,9 +180,21 @@ class CampaignService:
             self.store.append_turn(state, record)
 
             world_turn_requested = ctx.world_turn_requested
+            world_reason = ""
             if world_turn_requested:
+                world_reason = "requested by the narrator"
+            else:
+                auto, why = self._should_auto_world_turn(state, turn_no)
+                if auto:
+                    world_reason = why
+
+            world_turn_ran = False
+            if world_reason:
+                if on_event is not None:
+                    on_event({"type": "status", "stage": "world"})
                 try:
-                    self._world_turn_locked(campaign_id, "requested by the narrator")
+                    self._world_turn_locked(campaign_id, world_reason)
+                    world_turn_ran = True
                 except Exception:
                     # A failed offscreen update must not erase a committed player turn.
                     pass
@@ -192,6 +206,7 @@ class CampaignService:
                 changes=ctx.changes,
                 usage=total_usage,
                 world_turn_requested=world_turn_requested,
+                world_turn_ran=world_turn_ran,
                 player=player_view(self.store.load(campaign_id)),
             )
 
@@ -245,6 +260,35 @@ class CampaignService:
         }
 
     # -- internals -----------------------------------------------------
+
+    def _should_auto_world_turn(
+        self,
+        state: CampaignState,
+        turn_no: int,
+    ) -> tuple[bool, str]:
+        if not self.settings.auto_world_turns:
+            return False, ""
+        last_world = next(
+            (turn for turn in reversed(state.turns) if turn.kind == "world"),
+            None,
+        )
+        last_turn = last_world.turn if last_world is not None else 0
+        if last_world is not None:
+            last_time = last_world.world_time_after
+        elif state.turns:
+            last_time = state.turns[0].world_time_after
+        else:
+            last_time = state.meta.world_time_minutes
+        turns_since = turn_no - last_turn
+        if turns_since >= self.settings.world_turn_interval:
+            return True, f"{turns_since} player turns passed"
+        minutes_since = state.meta.world_time_minutes - last_time
+        if (
+            self.settings.world_turn_minutes > 0
+            and minutes_since >= self.settings.world_turn_minutes
+        ):
+            return True, f"{minutes_since} in-world minutes passed"
+        return False, ""
 
     def _existing_names(self, limit: int = 25) -> list[str]:
         names: set[str] = set()

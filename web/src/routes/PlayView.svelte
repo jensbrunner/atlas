@@ -97,6 +97,8 @@
         return 'Keeping a secret hidden…'
       case 'saving':
         return 'Settling the turn…'
+      case 'world':
+        return 'The world moves offscreen…'
       default:
         return 'The world is considering its answer…'
     }
@@ -165,8 +167,12 @@
       </div>
     </div>
     <div class="controls">
-      <button onclick={advanceWorld} disabled={worldPending || pending}>
-        {worldPending ? 'World is moving…' : 'Advance world'}
+      <button
+        onclick={advanceWorld}
+        disabled={worldPending || pending}
+        title="Force an offscreen world turn. The world also advances automatically every few turns."
+      >
+        {worldPending ? 'World is moving…' : 'World now'}
       </button>
       <button onclick={() => (usageOpen = true)}>Usage</button>
       <button onclick={runAudit} disabled={pending}>Audit</button>

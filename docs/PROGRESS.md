@@ -77,8 +77,9 @@ them.
   pass.
 - Player-view privacy: NPC attitudes/plans and faction goals/stances never reach
   the browser.
-- World agent: offscreen evolution on manual request or narrator request; updates
-  clocks, factions, NPCs, and facts without narrating the player's scene.
+- World agent: offscreen evolution automatically after the turn/minute threshold,
+  on narrator request, or via the manual override; updates clocks, factions, NPCs,
+  and facts without narrating the player's scene.
 - Auditor: on-demand structured findings with severity, summary, and evidence.
   Advisory only; no write tools.
 - Fake provider: deterministic replies, generic demo seed, configurable audit
@@ -104,7 +105,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 85 passed |
+| `uv run pytest -q` | 86 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 73 files already formatted |
 | `uv run mypy` | no issues in 61 source files |
@@ -140,6 +141,7 @@ network calls and need no credentials. Coverage includes:
 - tool-loop deadline and iteration limit;
 - world turn clock changes hidden from player narration, world-turn files, and
   world turns loading after a player turn with the same number;
+- automatic world turns after the configured player-turn interval;
 - auditor findings and empty findings;
 - campaign generation retry with validation feedback, failure after two tries,
   a cross-campaign name avoid-list, and a character-concept hint;
@@ -212,7 +214,6 @@ Live OpenAI smoke test (GPT-6 Luna):
 - Narration is not token-streamed. The UI receives progress stages and then the
   committed turn; live turns have taken roughly 17–55 s.
 - No campaign export/import.
-- World turns are manual or narrator-requested; no time-threshold automation.
 - Retrieval is lexical BM25, not semantic. Synonyms may miss; names and
   `lookup_canon` compensate. The index is rebuilt each turn, and state loading
   still reads the full campaign directory.

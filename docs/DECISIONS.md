@@ -93,11 +93,10 @@ before any file is written. A failed generation creates nothing.
 
 ## ADR-012 — World evolution is explicit
 
-Accepted. A world turn runs only on manual request or when the narrator asks for
-one. It updates clocks, factions, NPCs, and offscreen facts. It does not narrate
-the player's scene and does not resolve the player's situation.
-
-Consequence: the world does not silently spiral while the player reads.
+Accepted; scheduling amended by ADR-028. A world turn updates clocks, factions,
+NPCs, and offscreen facts. It does not narrate the player's scene and does not
+resolve the player's situation. It runs by automatic turn/minute threshold,
+narrator request, or manual override.
 
 ## ADR-013 — The auditor is advisory
 
@@ -207,11 +206,18 @@ meaningful interval; a second call is rejected, and routine conversation does no
 advance the clock. Named clocks remain event-driven pressure, not wall time.
 This keeps continuity without minute-by-minute bookkeeping. See [TIME.md](TIME.md).
 
+## ADR-028 — World evolution is automatic
+
+Accepted. After a player turn commits, the world agent runs automatically when
+the configured turn interval (default 3) or in-world minute threshold (default
+120) is reached, or when the narrator requests it. The manual "World now" action
+is an override, not the normal path. A failed auto world turn is swallowed so a
+committed player turn is never erased.
+
 ## Deferred decisions
 
 - Token-level narration streaming.
 - Export/import of campaign directories.
-- Automatic world-turn thresholds based on world time.
 - Semantic/vector retrieval and a persisted index for very large worlds.
 - Semantic secret-leak detection and model-side redaction.
 - Multi-user or remote hosting.

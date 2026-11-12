@@ -31,6 +31,9 @@ Use it for meaningful intervals, not routine conversation.
   morning"); the anchor is only updated when a meaningful interval passes.
 - Named clocks remain separate. They are **event pressure**, not wall time:
   `patch_clock` advances when the fiction earns it, not on a timer.
+- The world agent runs automatically after the turn interval or in-world minute
+  threshold, so time passing also has offscreen consequences without a button
+  click. The manual "World now" control is only an override.
 
 This keeps the benefits of chronology without turning play into time
 bookkeeping. Removing the anchor entirely would make clocks, deadlines, world

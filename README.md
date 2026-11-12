@@ -35,8 +35,8 @@ no story branches in the engine, and no database.
   selects the present cast, nearby places, known facts, and query-relevant
   material; the narrator can call `lookup_canon` for anything omitted. See
   [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
-- The world can evolve offscreen through a world agent, and a continuity auditor
-  can review the canon without rewriting it.
+- The world evolves offscreen automatically every few turns or after meaningful
+  in-world time; a continuity auditor can review the canon without rewriting it.
 
 ## Requirements
 
@@ -156,8 +156,9 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
   wall-clock deadline.
 - **Campaign generator:** one structured call, retried once with validation
   feedback if references or ids are malformed.
-- **World agent:** only on a manual "Advance world" action or when the narrator
-  asks for an offscreen turn. It does not narrate the player's scene.
+- **World agent:** runs automatically after the configured number of player turns
+  or meaningful in-world minutes, when the narrator requests an offscreen turn, or
+  via the manual "World now" override. It does not narrate the player's scene.
 - **Continuity auditor:** on demand. Advisory only; it has no write tools.
 
 Context is selected from the GM packet with a local BM25 index plus scene boosts
@@ -227,8 +228,6 @@ network calls and requires no credentials.
 - Token-by-token narration streaming. The UI streams progress events (reading,
   rolling, updating, saving) and then commits the finished turn atomically.
 - Campaign export/import.
-- Automatic time-threshold world turns; world evolution is manual or
-  narrator-requested.
 - Semantic secret-leak detection. The check is verbatim matching against GM fact
   text, GM prose, and hidden names, followed by one narrator repair pass.
 - Semantic or vector retrieval. Current retrieval is lexical BM25 plus explicit

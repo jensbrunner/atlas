@@ -42,6 +42,9 @@ def config(request: Request) -> dict[str, Any]:
             "auditor": settings.auditor_model,
         },
         "max_tool_iterations": settings.max_tool_iterations,
+        "auto_world_turns": settings.auto_world_turns,
+        "world_turn_interval": settings.world_turn_interval,
+        "world_turn_minutes": settings.world_turn_minutes,
     }
 
 
