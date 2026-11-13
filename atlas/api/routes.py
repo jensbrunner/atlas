@@ -45,6 +45,8 @@ def config(request: Request) -> dict[str, Any]:
         "auto_world_turns": settings.auto_world_turns,
         "world_turn_interval": settings.world_turn_interval,
         "world_turn_minutes": settings.world_turn_minutes,
+        "creative_briefs": settings.creative_briefs,
+        "narrative_lenses": settings.narrative_lenses,
     }
 
 

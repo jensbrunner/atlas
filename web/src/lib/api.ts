@@ -10,6 +10,7 @@ export interface CampaignMeta {
   turn_count: number
   world_time_minutes: number
   content_boundaries: string[]
+  creative_brief: string
 }
 
 export interface Attributes {
@@ -259,6 +260,7 @@ export interface CanonTurn {
   usage: { input_tokens: number; output_tokens: number; estimated_usd: number }
   rolls: Roll[]
   changes: string[]
+  narrative_lens: string
 }
 
 export interface CanonNPC {

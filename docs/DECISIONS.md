@@ -230,6 +230,21 @@ inventory, all locations, NPCs, factions, clocks, facts, notes, journal, and ful
 turn records. It is an inspection surface only; it does not alter persistence,
 turn flow, or gameplay.
 
+## ADR-032 — Use OS entropy for campaign ingredients
+
+Accepted. Campaign generation receives a persisted six-part creative brief drawn
+from broad pools using `secrets.SystemRandom`: setting, relationship, opening,
+pressure, texture, and wildcard. The model connects the elements; the harness does
+not demand a specific setting. The brief is stored in campaign metadata and shown
+in Canon.
+
+## ADR-033 — Optional random narrative lens per turn
+
+Accepted. Each player turn receives one positive narrative texture drawn from a
+lens pool, avoiding the last four. It is optional in the prompt and never
+mentioned in narration. The chosen lens is stored on the turn record. This adds
+variety without blacklists, negative prompting, or extra model calls.
+
 ## Deferred decisions
 
 - Token-level narration streaming.

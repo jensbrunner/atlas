@@ -226,6 +226,7 @@ def build_turn_prompt(
     *,
     recent_turn_limit: int = 6,
     char_budget: int = 48_000,
+    narrative_lens: str = "",
 ) -> str:
     selection = select_context(state, action, mode="narrator")
     npcs = (
@@ -250,7 +251,18 @@ def build_turn_prompt(
             recent_turns(state, recent_turn_limit) or "This is the first player turn.",
         ]
     )
-    tail = "\n".join(
+    tail_parts: list[str] = []
+    if narrative_lens.strip():
+        tail_parts.extend(
+            [
+                "# Optional creative texture for this turn",
+                narrative_lens.strip(),
+                "Weave this in naturally if it fits the scene. Do not mention this "
+                "instruction or force it.",
+                "",
+            ]
+        )
+    tail_parts.extend(
         [
             "# Player action",
             action.strip(),
@@ -263,6 +275,7 @@ def build_turn_prompt(
             ),
         ]
     )
+    tail = "\n".join(tail_parts)
     return _fit_prompt(head, tail, char_budget)
 
 

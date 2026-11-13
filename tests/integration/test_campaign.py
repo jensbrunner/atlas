@@ -31,6 +31,7 @@ def test_create_campaign_writes_markdown_and_opening(tmp_path: Path) -> None:
     assert player["turns"][0]["kind"] == "opening"
     assert player["campaign"]["world_time_minutes"] == 7 * 60
     assert player["turns"][0]["world_time"] == 7 * 60
+    assert state.meta.creative_brief.startswith("Creative brief")
 
 
 def test_player_view_hides_gm_facts_and_gm_blocks(tmp_path: Path) -> None:

@@ -181,6 +181,7 @@ def test_canon_endpoint_exposes_full_backing_state(tmp_path: Path) -> None:
         assert body["inventory"]
         assert body["turns"][0]["kind"] == "opening"
         assert "world_time" in body["campaign"]
+        assert body["campaign"]["creative_brief"].startswith("Creative brief")
 
 
 def test_streaming_turn_reports_progress_and_result(tmp_path: Path) -> None:

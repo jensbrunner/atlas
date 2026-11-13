@@ -35,6 +35,10 @@ no story branches in the engine, and no database.
 - A Canon button opens a read-only inspector for the entire backing state:
   campaign metadata, character, inventory, all locations, NPCs, factions, clocks,
   facts, journal, and every turn with rolls, changes, and usage.
+- Campaign creation is seeded with an OS-random creative brief: setting,
+  relationship, opening, pressure, texture, and wildcard seeds. The model connects
+  them rather than starting from the same neutral context. See
+  [docs/CREATIVITY.md](docs/CREATIVITY.md).
 - Only a relevant slice of canon is sent to the narrator. A local BM25 index
   selects the present cast, nearby places, known facts, and query-relevant
   material; the narrator can call `lookup_canon` for anything omitted. See
@@ -159,7 +163,8 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
 - **Narrator:** one model loop per player turn, plus tool round-trips. It cannot
   write state directly; it calls tools. A rejected draft gets one leak-repair
   pass. Identical tool effects are suppressed within a turn, and a turn has a
-  wall-clock deadline.
+  wall-clock deadline. Each turn receives an optional random narrative texture
+  chosen to avoid recent repeats.
 - **Campaign generator:** one structured call, retried once with validation
   feedback if references or ids are malformed.
 - **World agent:** runs automatically after the configured number of player turns

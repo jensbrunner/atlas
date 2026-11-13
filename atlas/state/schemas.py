@@ -143,6 +143,7 @@ class CampaignMeta(StrictModel):
     turn_count: int = Field(default=0, ge=0)
     world_time_minutes: int = Field(default=0, ge=0)
     content_boundaries: list[str] = Field(default_factory=list)
+    creative_brief: str = ""
 
 
 class RollRecord(StrictModel):
@@ -185,6 +186,7 @@ class TurnRecord(StrictModel):
     rolls: list[RollRecord] = Field(default_factory=list)
     changes: list[str] = Field(default_factory=list)
     narration: str = ""
+    narrative_lens: str = ""
 
 
 # ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ atlas/
   game.py              CampaignService: generation, turns, world turns, audit
   context.py           retrieval-selected GM packet assembly
   retrieval.py         BM25 index and relevance selection
+  creativity.py        OS-random creative briefs and narrative lenses
   pricing.py           built-in model list prices and cost estimates
   errors.py            typed harness errors
   ids.py               ids and slugs
@@ -212,6 +213,14 @@ known entity references, monotonic world time, valid fact/NPC references.
 - Cost is recomputed for historical turns from the table, so old zero-cost turns
   become priced after the table is added. Turn files still store the estimate
   captured at the time.
+
+## Creativity
+
+Campaign creation receives a six-part brief drawn from the OS CSPRNG: setting,
+relationship, opening, pressure, texture, and wildcard seeds. It is stored in
+campaign metadata and shown in Canon. Each player turn receives a randomly chosen
+narrative lens, avoiding the last four, as optional texture in the narrator
+packet. See [CREATIVITY.md](CREATIVITY.md).
 
 ## Time and clocks
 

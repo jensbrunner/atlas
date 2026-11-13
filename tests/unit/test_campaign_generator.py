@@ -37,6 +37,18 @@ def test_character_hint_reaches_the_generator() -> None:
     assert "disgraced cartographer" in provider.requests[0].user_input
 
 
+def test_creative_brief_reaches_the_generator() -> None:
+    provider = SequenceProvider([seed_payload()])
+    generator = CampaignGenerator(provider, Settings(_env_file=None))  # type: ignore[arg-type]
+
+    generator.generate(
+        CampaignRequest(),
+        creative_brief="- Setting seed: a mountain observatory",
+    )
+
+    assert "mountain observatory" in provider.requests[0].user_input
+
+
 def test_generation_retries_once_with_the_validation_error() -> None:
     provider = SequenceProvider(
         [

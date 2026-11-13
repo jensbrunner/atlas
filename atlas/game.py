@@ -15,6 +15,7 @@ from atlas.agents.providers import build_provider
 from atlas.agents.types import Provider, add_usage
 from atlas.agents.world import WorldAgent
 from atlas.config import Settings
+from atlas.creativity import choose_narrative_lens, make_creative_brief
 from atlas.errors import BudgetExceeded, EmptyNarration, LeakDetected
 from atlas.state.markdown import extract_gm_block_text
 from atlas.state.render import gm_view, player_view
@@ -101,9 +102,16 @@ class CampaignService:
 
     def create_campaign(self, request: CampaignRequest) -> tuple[CampaignState, Usage]:
         with self._create_lock:
+            creative_brief = (
+                make_creative_brief().as_prompt() if self.settings.creative_briefs else ""
+            )
             generator = CampaignGenerator(self.provider, self.settings)
-            seed, usage = generator.generate(request)
-            state = self.store.create(seed, narrator_model=self.settings.narrator_model)
+            seed, usage = generator.generate(request, creative_brief=creative_brief)
+            state = self.store.create(
+                seed,
+                narrator_model=self.settings.narrator_model,
+                creative_brief=creative_brief,
+            )
             self._account(usage)
             return state, usage
 
@@ -125,9 +133,23 @@ class CampaignService:
         with self._lock(campaign_id):
             state = self.store.load(campaign_id)
             time_before = state.meta.world_time_minutes
+            recent_lenses = [
+                turn.narrative_lens
+                for turn in state.turns
+                if turn.kind == "player" and turn.narrative_lens
+            ]
+            narrative_lens = (
+                choose_narrative_lens(recent_lenses) if self.settings.narrative_lenses else ""
+            )
             ctx = ToolContext(state=state, rng=self.rng_factory())
             narrator = Narrator(self.provider, self.registry, self.settings)
-            reply = narrator.play(state, action, ctx, on_event=on_event)
+            reply = narrator.play(
+                state,
+                action,
+                ctx,
+                on_event=on_event,
+                narrative_lens=narrative_lens,
+            )
             total_usage = reply.usage
             self._account(reply.usage)
 
@@ -146,6 +168,7 @@ class CampaignService:
                     leak.matched,
                     ctx,
                     on_event=on_event,
+                    narrative_lens=narrative_lens,
                 )
                 total_usage = add_usage(total_usage, repaired.usage)
                 self._account(repaired.usage)
@@ -172,6 +195,7 @@ class CampaignService:
                 rolls=ctx.rolls,
                 changes=ctx.changes,
                 narration=narration,
+                narrative_lens=narrative_lens,
             )
             self.store.save(state)
             self.store.append_turn(state, record)

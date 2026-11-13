@@ -23,6 +23,7 @@ class Narrator:
         ctx: ToolContext,
         *,
         on_event: EventCallback | None = None,
+        narrative_lens: str = "",
     ) -> AgentReply:
         request = AgentRequest(
             model=self.settings.narrator_model,
@@ -35,6 +36,7 @@ class Narrator:
                         action,
                         recent_turn_limit=self.settings.recent_turn_limit,
                         char_budget=self.settings.context_char_budget,
+                        narrative_lens=narrative_lens,
                     ),
                 )
             ],
@@ -60,6 +62,7 @@ class Narrator:
         ctx: ToolContext,
         *,
         on_event: EventCallback | None = None,
+        narrative_lens: str = "",
     ) -> AgentReply:
         """Rewrite or reveal after the leak scan rejects a draft."""
 
@@ -74,6 +77,7 @@ class Narrator:
                         action,
                         recent_turn_limit=self.settings.recent_turn_limit,
                         char_budget=self.settings.context_char_budget,
+                        narrative_lens=narrative_lens,
                     ),
                 ),
                 Message(role="assistant", content=draft),

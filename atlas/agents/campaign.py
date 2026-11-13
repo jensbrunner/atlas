@@ -188,6 +188,8 @@ class CampaignGenerator:
     def generate(
         self,
         request: CampaignRequest,
+        *,
+        creative_brief: str = "",
     ) -> tuple[CampaignSeed, Usage]:
         lines = [
             f"Title hint: {request.title or 'none'}",
@@ -196,6 +198,8 @@ class CampaignGenerator:
             f"Tone: {request.tone or 'your choice'}",
             f"Player character hint: {request.character or 'your choice'}",
         ]
+        if creative_brief.strip():
+            lines.extend(["", creative_brief.strip()])
         lines.append("Create the campaign now. Fill every field that matters.")
         user_input = "\n".join(lines)
         total_usage = Usage()

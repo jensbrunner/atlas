@@ -79,7 +79,13 @@ class CampaignStore:
 
     # -- create --------------------------------------------------------
 
-    def create(self, seed: CampaignSeed, *, narrator_model: str) -> CampaignState:
+    def create(
+        self,
+        seed: CampaignSeed,
+        *,
+        narrator_model: str,
+        creative_brief: str = "",
+    ) -> CampaignState:
         campaign_id = new_id("cmp")
         root = self.campaign_dir(campaign_id)
         root.mkdir(parents=True, exist_ok=True)
@@ -186,6 +192,7 @@ class CampaignStore:
             created_at=datetime.now(UTC),
             narrator_model=narrator_model,
             world_time_minutes=seed.start_minute,
+            creative_brief=creative_brief,
         )
 
         character_body = "\n\n".join(

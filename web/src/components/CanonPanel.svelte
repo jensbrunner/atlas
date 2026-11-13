@@ -104,6 +104,10 @@
         </section>
         <h4>Premise</h4>
         <p class="prose">{data.campaign.premise || '—'}</p>
+        {#if data.campaign.creative_brief}
+          <h4>Creative brief</h4>
+          <pre>{data.campaign.creative_brief}</pre>
+        {/if}
         {#if data.notes.campaign}
           <h4>Campaign notes</h4>
           <pre>{data.notes.campaign}</pre>
@@ -245,6 +249,9 @@
             </summary>
             <div class="entry-body">
               {#if turn.action}<p><span class="label">Action</span> {turn.action}</p>{/if}
+              {#if turn.narrative_lens}
+                <p><span class="label">Creative texture</span> {turn.narrative_lens}</p>
+              {/if}
               <div class="prose">{turn.narration}</div>
               {#if turn.rolls.length}
                 <h4>Rolls</h4>
