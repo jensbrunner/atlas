@@ -98,6 +98,10 @@ def test_api_world_turn_and_audit(tmp_path: Path) -> None:
         created = client.post("/api/campaigns", json={"prompt": "A harbor mystery."})
         campaign_id = created.json()["campaign"]["id"]
 
+        status = client.get(f"/api/campaigns/{campaign_id}/world-status")
+        assert status.status_code == 200
+        assert status.json() == {"pending": False, "last_world_turn": None}
+
         world = client.post(
             f"/api/campaigns/{campaign_id}/world-turn",
             json={"reason": "dusk"},

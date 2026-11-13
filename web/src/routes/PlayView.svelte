@@ -3,6 +3,7 @@
   import {
     auditCampaign,
     getPlayer,
+    getWorldStatus,
     playTurnStream,
     worldTurn,
     type AuditFinding,
@@ -30,6 +31,9 @@
   let pending = $state(false)
   let status = $state('')
   let worldPending = $state(false)
+  let worldBackground = $state(false)
+  let lastTurnSeconds = $state<number | null>(null)
+  let worldPollToken = 0
   let tab = $state<Tab>('character')
   let gmOpen = $state(false)
   let canonOpen = $state(false)
@@ -107,6 +111,8 @@
   }
 
   async function send(action: string) {
+    worldPollToken += 1
+    worldBackground = false
     pending = true
     status = 'Reading the scene…'
     error = null
@@ -115,6 +121,10 @@
         status = streamLabel(event)
       })
       view = result.player
+      lastTurnSeconds = result.duration_seconds
+      if (result.world_turn_queued) {
+        void followWorldTurn()
+      }
       return true
     } catch (exc) {
       error = exc instanceof Error ? exc.message : String(exc)
@@ -123,6 +133,36 @@
       pending = false
       status = ''
     }
+  }
+
+  /**
+   * The world turn is queued after the player turn is committed. Poll until it
+   * lands, then refresh the panels without making the reader wait for prose.
+   */
+  async function followWorldTurn() {
+    const token = worldPollToken
+    worldBackground = true
+    try {
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await wait(1_200)
+        if (token !== worldPollToken) return
+        const current = await getWorldStatus(campaignId)
+        if (!current.pending) {
+          if (token === worldPollToken) view = await getPlayer(campaignId)
+          return
+        }
+      }
+    } catch (exc) {
+      if (token === worldPollToken) {
+        error = exc instanceof Error ? exc.message : String(exc)
+      }
+    } finally {
+      if (token === worldPollToken) worldBackground = false
+    }
+  }
+
+  function wait(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds))
   }
 
   async function advanceWorld() {
@@ -164,6 +204,8 @@
           {#if view}
             {view.campaign.time_of_day} · {view.campaign.world_time} · turn {view.campaign.turn_count}
             {#if view.world.location}· {view.world.location.name}{/if}
+            {#if lastTurnSeconds !== null}· {lastTurnSeconds.toFixed(1)}s{/if}
+            {#if worldBackground}· the world moves offscreen…{/if}
           {/if}
         </div>
       </div>
@@ -171,7 +213,7 @@
     <div class="controls">
       <button
         onclick={advanceWorld}
-        disabled={worldPending || pending}
+        disabled={worldPending || pending || worldBackground}
         title="Force an offscreen world turn. The world also advances automatically every few turns."
       >
         {worldPending ? 'World is moving…' : 'World now'}

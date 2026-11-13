@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from atlas.agents.campaign import CampaignRequest
-from atlas.agents.types import AgentReply
+from atlas.agents.fake import FakeProvider
+from atlas.agents.types import AgentReply, AgentRequest
 from tests.support import fake_provider, make_service, tool
 
 
@@ -97,9 +99,49 @@ def test_world_turn_runs_automatically_after_the_interval(tmp_path: Path) -> Non
     second = service.play_turn(state.meta.id, "two")
     third = service.play_turn(state.meta.id, "three")
 
-    assert first.world_turn_ran is False
-    assert second.world_turn_ran is False
-    assert third.world_turn_ran is True
+    assert first.world_turn_queued is False
+    assert second.world_turn_queued is False
+    assert third.world_turn_queued is True
+    assert third.last_world_turn is None
+    assert service.wait_for_world_turn(state.meta.id, timeout=5)
 
     reloaded = service.get(state.meta.id)
     assert any(turn.kind == "world" and turn.turn == 3 for turn in reloaded.turns)
+
+
+class BlockingWorldProvider(FakeProvider):
+    """Hold the world turn open so the test can prove the player turn returned."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.world_started = threading.Event()
+        self.release_world = threading.Event()
+
+    def complete(self, request: AgentRequest) -> AgentReply:
+        if "ATLAS World Agent" in request.instructions:
+            self.world_started.set()
+            self.release_world.wait(timeout=5)
+        return super().complete(request)
+
+
+def test_background_world_turn_does_not_block_the_committed_player_turn(
+    tmp_path: Path,
+) -> None:
+    provider = BlockingWorldProvider()
+    service = make_service(tmp_path, provider=provider)
+    state, _ = service.create_campaign(CampaignRequest(prompt="A harbor mystery."))
+
+    service.play_turn(state.meta.id, "one")
+    service.play_turn(state.meta.id, "two")
+    third = service.play_turn(state.meta.id, "three")
+
+    assert third.world_turn_queued is True
+    assert provider.world_started.wait(timeout=2)
+    assert service.world_status(state.meta.id)["pending"] is True
+
+    provider.release_world.set()
+    assert service.wait_for_world_turn(state.meta.id, timeout=5)
+    status = service.world_status(state.meta.id)
+    assert status["pending"] is False
+    assert status["last_world_turn"] == 3
+    assert any(turn.kind == "world" for turn in service.get(state.meta.id).turns)

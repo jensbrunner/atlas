@@ -80,7 +80,7 @@ def _npc_sheet(state: CampaignState, npc_id: str) -> str:
         f"Knows facts: {known}",
     ]
     if body:
-        lines.append(_clip(body, 1_200))
+        lines.append(_clip(body, 800))
     return "\n".join(lines)
 
 
@@ -178,7 +178,7 @@ def world_section(state: CampaignState, selection: Selection | None = None) -> s
         ]
     )
     if state.world_body.strip():
-        lines.extend(["", "World notes:", _clip(state.world_body, 4_000)])
+        lines.extend(["", "World notes:", _clip(state.world_body, 2_500)])
     return "\n".join(lines)
 
 

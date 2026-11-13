@@ -42,6 +42,8 @@ def config(request: Request) -> dict[str, Any]:
             "auditor": settings.auditor_model,
         },
         "max_tool_iterations": settings.max_tool_iterations,
+        "narrator_output_tokens": settings.narrator_output_tokens,
+        "recent_turn_limit": settings.recent_turn_limit,
         "auto_world_turns": settings.auto_world_turns,
         "world_turn_interval": settings.world_turn_interval,
         "world_turn_minutes": settings.world_turn_minutes,
@@ -213,6 +215,11 @@ def play_turn_stream(
 @router.post("/campaigns/{campaign_id}/world-turn")
 def world_turn(request: Request, campaign_id: str, body: WorldTurnBody) -> dict[str, Any]:
     return service_from(request).world_turn(campaign_id, body.reason)
+
+
+@router.get("/campaigns/{campaign_id}/world-status")
+def world_status(request: Request, campaign_id: str) -> dict[str, Any]:
+    return service_from(request).world_status(campaign_id)
 
 
 @router.post("/campaigns/{campaign_id}/audit")

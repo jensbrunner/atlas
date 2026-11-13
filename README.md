@@ -44,7 +44,9 @@ no story branches in the engine, and no database.
   material; the narrator can call `lookup_canon` for anything omitted. See
   [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
 - The world evolves offscreen automatically every few turns or after meaningful
-  in-world time; a continuity auditor can review the canon without rewriting it.
+  in-world time; the world turn is queued after the player turn commits so it does
+  not delay the narration. A continuity auditor can review the canon without
+  rewriting it.
 
 ## Requirements
 
@@ -161,21 +163,30 @@ The narrator decides when a roll is needed. The tool layer decides what is legal
 ## Agents and cost
 
 - **Narrator:** one model loop per player turn, plus tool round-trips. It cannot
-  write state directly; it calls tools. A rejected draft gets one leak-repair
-  pass. Identical tool effects are suppressed within a turn, and a turn has a
-  wall-clock deadline. Each turn receives an optional random narrative texture
-  chosen to avoid recent repeats.
+  write state directly; it calls tools. Independent tool calls are sent in one
+  response (`parallel_tool_calls`), so a turn usually needs fewer round-trips. A
+  rejected draft gets one leak-repair pass. Identical tool effects are suppressed
+  within a turn, and a turn has a wall-clock deadline. Each turn receives an
+  optional random narrative texture chosen to avoid recent repeats.
 - **Campaign generator:** one structured call, retried once with validation
   feedback if references or ids are malformed.
-- **World agent:** runs automatically after the configured number of player turns
-  or meaningful in-world minutes, when the narrator requests an offscreen turn, or
-  via the manual "World now" override. It does not narrate the player's scene.
+- **World agent:** queued in the background after the configured number of player
+  turns or meaningful in-world minutes, when the narrator requests an offscreen
+  turn, or via the manual "World now" override. The player turn returns first; the
+  next player turn waits for the queued world turn so canon stays ordered. It does
+  not narrate the player's scene.
 - **Continuity auditor:** on demand. Advisory only; it has no write tools.
 
 Context is selected from the GM packet with a local BM25 index plus scene boosts
 (present NPCs, current location, NPC knowledge, active clocks). The narrator can
 call `lookup_canon` for omitted material. Recent turns and total prompt
 characters are budgeted. Every turn records token usage.
+
+Turn latency is kept down by sending four recent turns, clipping long NPC/world
+notes, capping narrator output at `ATLAS_NARRATOR_OUTPUT_TOKENS` (3000 by
+default), stopping the tool loop after six iterations, and letting the model
+batch independent tool calls in one response. The browser reports the committed
+turn's duration in the top bar.
 
 Cost estimates use a built-in list-price table for major OpenAI, Anthropic,
 Google, xAI, DeepSeek, Mistral, and Cohere models, checked 2026-11-12. Model IDs
@@ -203,6 +214,7 @@ GET    /api/campaigns/{id}/turns
 POST   /api/campaigns/{id}/turns      {action}
 POST   /api/campaigns/{id}/turns/stream {action}   # SSE progress + final result
 POST   /api/campaigns/{id}/world-turn {reason?}
+GET    /api/campaigns/{id}/world-status            # queued world-turn poll
 POST   /api/campaigns/{id}/audit
 ```
 

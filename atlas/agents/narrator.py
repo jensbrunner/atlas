@@ -41,7 +41,7 @@ class Narrator:
                 )
             ],
             tools=self.registry.schemas(),
-            max_output_tokens=max(512, min(4_000, self.settings.turn_token_limit // 3)),
+            max_output_tokens=self.settings.narrator_output_tokens,
         )
         return run_tool_loop(
             self.provider,
@@ -91,7 +91,7 @@ class Narrator:
                 ),
             ],
             tools=self.registry.schemas(),
-            max_output_tokens=max(512, min(4_000, self.settings.turn_token_limit // 3)),
+            max_output_tokens=self.settings.narrator_output_tokens,
         )
         return run_tool_loop(
             self.provider,

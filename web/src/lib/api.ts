@@ -140,8 +140,15 @@ export interface TurnResult {
   changes: string[]
   usage: { input_tokens: number; output_tokens: number; estimated_usd: number }
   world_turn_requested: boolean
-  world_turn_ran: boolean
+  world_turn_queued: boolean
+  last_world_turn: number | null
+  duration_seconds: number
   player: PlayerView
+}
+
+export interface WorldStatus {
+  pending: boolean
+  last_world_turn: number | null
 }
 
 export interface UsageTotals {
@@ -420,6 +427,10 @@ export function worldTurn(campaignId: string, reason: string): Promise<{ player:
     method: 'POST',
     body: JSON.stringify({ reason }),
   })
+}
+
+export function getWorldStatus(campaignId: string): Promise<WorldStatus> {
+  return request(`/campaigns/${campaignId}/world-status`)
 }
 
 export function auditCampaign(campaignId: string): Promise<{ findings: AuditFinding[] }> {

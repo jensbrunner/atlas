@@ -51,6 +51,7 @@ class OpenAIProvider:
             instructions=request.instructions,
             input=cast(Any, _input_items(request.messages)),
             tools=cast(Any, request.tools),
+            parallel_tool_calls=True,
             max_output_tokens=request.max_output_tokens,
         )
         text = _response_text(response)

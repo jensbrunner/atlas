@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import random
 import re
 import threading
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -25,6 +27,8 @@ from atlas.state.validate import validate_state
 from atlas.tools.context import ToolContext
 from atlas.tools.registry import ToolRegistry, build_default_registry
 
+logger = logging.getLogger("atlas.turns")
+
 
 @dataclass
 class TurnResult:
@@ -34,7 +38,9 @@ class TurnResult:
     changes: list[str]
     usage: Usage
     world_turn_requested: bool
-    world_turn_ran: bool
+    world_turn_queued: bool
+    last_world_turn: int | None
+    duration_seconds: float
     player: dict[str, Any]
 
     def as_dict(self) -> dict[str, Any]:
@@ -45,7 +51,9 @@ class TurnResult:
             "changes": self.changes,
             "usage": self.usage.model_dump(mode="json"),
             "world_turn_requested": self.world_turn_requested,
-            "world_turn_ran": self.world_turn_ran,
+            "world_turn_queued": self.world_turn_queued,
+            "last_world_turn": self.last_world_turn,
+            "duration_seconds": self.duration_seconds,
             "player": self.player,
         }
 
@@ -78,6 +86,10 @@ class CampaignService:
         self.rng_factory = rng_factory or random.Random
         self._locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
         self._create_lock = threading.Lock()
+        self._usage_lock = threading.Lock()
+        self._world_events: dict[str, threading.Event] = {}
+        self._world_events_lock = threading.Lock()
+        self._last_world: dict[str, int | None] = {}
         self._session_usage = Usage()
 
     # -- queries -------------------------------------------------------
@@ -97,6 +109,8 @@ class CampaignService:
     def delete(self, campaign_id: str) -> None:
         with self._lock(campaign_id):
             self.store.delete(campaign_id)
+            with self._world_events_lock:
+                self._last_world.pop(campaign_id, None)
 
     # -- creation ------------------------------------------------------
 
@@ -112,6 +126,8 @@ class CampaignService:
                 narrator_model=self.settings.narrator_model,
                 creative_brief=creative_brief,
             )
+            with self._world_events_lock:
+                self._last_world[state.meta.id] = None
             self._account(usage)
             return state, usage
 
@@ -130,6 +146,8 @@ class CampaignService:
         if len(action) > 4_000:
             raise ValueError("action is too long")
 
+        started = time.monotonic()
+        self._wait_for_world_turn(campaign_id)
         with self._lock(campaign_id):
             state = self.store.load(campaign_id)
             time_before = state.meta.world_time_minutes
@@ -209,16 +227,26 @@ class CampaignService:
                 if auto:
                     world_reason = why
 
-            world_turn_ran = False
+            # The world turn can take as long as the player turn. Queue it so the
+            # narration reaches the reader first; the next player turn waits for
+            # it to finish, which keeps canon ordered without blocking this one.
+            world_turn_queued = False
             if world_reason:
                 if on_event is not None:
                     on_event({"type": "status", "stage": "world"})
-                try:
-                    self._world_turn_locked(campaign_id, world_reason)
-                    world_turn_ran = True
-                except Exception:
-                    # A failed offscreen update must not erase a committed player turn.
-                    pass
+                world_turn_queued = self._schedule_world_turn(campaign_id, world_reason)
+
+            last_world_turn = self._last_world_turn(state)
+            with self._world_events_lock:
+                self._last_world[campaign_id] = last_world_turn
+            duration = round(time.monotonic() - started, 3)
+            logger.info(
+                "player turn campaign=%s turn=%d seconds=%.2f queued_world=%s",
+                campaign_id,
+                turn_no,
+                duration,
+                world_turn_queued,
+            )
 
             return TurnResult(
                 turn=turn_no,
@@ -227,7 +255,9 @@ class CampaignService:
                 changes=ctx.changes,
                 usage=total_usage,
                 world_turn_requested=world_turn_requested,
-                world_turn_ran=world_turn_ran,
+                world_turn_queued=world_turn_queued,
+                last_world_turn=last_world_turn,
+                duration_seconds=duration,
                 player=player_view(self.store.load(campaign_id)),
             )
 
@@ -237,7 +267,33 @@ class CampaignService:
         with self._lock(campaign_id):
             return self._world_turn_locked(campaign_id, reason)
 
+    def world_status(self, campaign_id: str) -> dict[str, Any]:
+        """Cheap poll target for a queued background world turn."""
+
+        with self._world_events_lock:
+            event = self._world_events.get(campaign_id)
+            known = campaign_id in self._last_world
+            last_world = self._last_world.get(campaign_id)
+        pending = event is not None and not event.is_set()
+        if not known:
+            # Avoid re-reading every NPC and turn file on each poll.
+            state = self.store.load(campaign_id)
+            last_world = self._last_world_turn(state)
+            with self._world_events_lock:
+                self._last_world[campaign_id] = last_world
+        return {"pending": pending, "last_world_turn": last_world}
+
+    def wait_for_world_turn(self, campaign_id: str, timeout: float = 30.0) -> bool:
+        """Block until any background world turn finishes. Returns True if idle."""
+
+        with self._world_events_lock:
+            event = self._world_events.get(campaign_id)
+        if event is None:
+            return True
+        return event.wait(timeout)
+
     def _world_turn_locked(self, campaign_id: str, reason: str) -> dict[str, Any]:
+        started = time.monotonic()
         state = self.store.load(campaign_id)
         time_before = state.meta.world_time_minutes
         ctx = ToolContext(state=state, rng=self.rng_factory())
@@ -259,6 +315,15 @@ class CampaignService:
         )
         self.store.save(state)
         self.store.append_turn(state, record)
+        with self._world_events_lock:
+            self._last_world[campaign_id] = record.turn
+        logger.info(
+            "world turn campaign=%s turn=%d seconds=%.2f changes=%d",
+            campaign_id,
+            state.meta.turn_count,
+            time.monotonic() - started,
+            len(ctx.changes),
+        )
         return {
             "summary": reply.text.strip(),
             "changes": ctx.changes,
@@ -314,12 +379,70 @@ class CampaignService:
     def _lock(self, campaign_id: str) -> threading.Lock:
         return self._locks[campaign_id]
 
+    def _last_world_turn(self, state: CampaignState) -> int | None:
+        for turn in reversed(state.turns):
+            if turn.kind == "world":
+                return turn.turn
+        return None
+
+    def _schedule_world_turn(self, campaign_id: str, reason: str) -> bool:
+        """Start a background world turn; return False if one is already queued."""
+
+        with self._world_events_lock:
+            existing = self._world_events.get(campaign_id)
+            if existing is not None and not existing.is_set():
+                return False
+            event = threading.Event()
+            self._world_events[campaign_id] = event
+
+        thread = threading.Thread(
+            target=self._run_background_world_turn,
+            args=(campaign_id, reason, event),
+            name=f"atlas-world-{campaign_id}",
+            daemon=True,
+        )
+        thread.start()
+        return True
+
+    def _run_background_world_turn(
+        self,
+        campaign_id: str,
+        reason: str,
+        event: threading.Event,
+    ) -> None:
+        started = time.monotonic()
+        try:
+            with self._lock(campaign_id):
+                self._world_turn_locked(campaign_id, reason)
+        except Exception as exc:
+            # A failed offscreen update must not erase a committed player turn.
+            logger.warning(
+                "background world turn failed campaign=%s after %.2fs: %s",
+                campaign_id,
+                time.monotonic() - started,
+                exc,
+            )
+        finally:
+            with self._world_events_lock:
+                if self._world_events.get(campaign_id) is event:
+                    self._world_events.pop(campaign_id, None)
+            event.set()
+
+    def _wait_for_world_turn(self, campaign_id: str) -> None:
+        with self._world_events_lock:
+            event = self._world_events.get(campaign_id)
+        if event is not None:
+            # Keep player turns ordered behind a queued world turn. The world
+            # turn has its own deadline, so this cannot wait forever in practice.
+            event.wait(timeout=max(1.0, self.settings.turn_deadline_seconds * 2))
+
     def _account(self, usage: Usage) -> None:
-        self._session_usage = add_usage(self._session_usage, usage)
-        cap = self.settings.session_usd_limit
-        if cap > 0 and self._session_usage.estimated_usd > cap:
-            spent = self._session_usage.estimated_usd
-            raise BudgetExceeded(f"session cost limit exceeded: ${spent:.2f} > ${cap:.2f}")
+        with self._usage_lock:
+            self._session_usage = add_usage(self._session_usage, usage)
+            cap = self.settings.session_usd_limit
+            if cap > 0 and self._session_usage.estimated_usd > cap:
+                spent = self._session_usage.estimated_usd
+                raise BudgetExceeded(f"session cost limit exceeded: ${spent:.2f} > ${cap:.2f}")
 
     def _check_leaks(self, state: CampaignState, narration: str) -> None:
         haystack = narration.casefold()

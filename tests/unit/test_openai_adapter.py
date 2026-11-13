@@ -77,6 +77,7 @@ def test_complete_maps_text_tools_and_usage() -> None:
     assert kwargs["model"] == "gpt-6-luna"
     assert kwargs["instructions"] == "You are the narrator."
     assert kwargs["max_output_tokens"] == 123
+    assert kwargs["parallel_tool_calls"] is True
     assert kwargs["input"] == [{"role": "user", "content": "look around"}]
 
 

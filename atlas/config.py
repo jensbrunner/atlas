@@ -27,16 +27,16 @@ class Settings(BaseSettings):
     world_model: str = "gpt-6-luna"
     auditor_model: str = "gpt-6-luna"
 
-    turn_token_limit: int = Field(default=12_000, ge=1_000)
+    narrator_output_tokens: int = Field(default=3_000, ge=256, le=16_000)
     turn_deadline_seconds: float = Field(default=180.0, gt=0)
-    max_tool_iterations: int = Field(default=8, ge=1, le=32)
+    max_tool_iterations: int = Field(default=6, ge=1, le=32)
     auto_world_turns: bool = True
     world_turn_interval: int = Field(default=3, ge=1, le=50)
     world_turn_minutes: int = Field(default=120, ge=0)
     creative_briefs: bool = True
     narrative_lenses: bool = True
 
-    recent_turn_limit: int = Field(default=6, ge=0, le=50)
+    recent_turn_limit: int = Field(default=4, ge=0, le=50)
     context_char_budget: int = Field(default=48_000, ge=4_000)
 
     session_usd_limit: float = Field(default=2.0, ge=0)

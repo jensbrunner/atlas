@@ -86,12 +86,15 @@ them.
   contain no setting examples, keyword blacklists, or name avoid-lists.
 - Narrator: one tool loop per player turn, retrieval-selected GM packet,
   recent-turn window, configurable model, wall-clock deadline, and one leak-repair
-  pass.
+  pass. The loop asks for parallel tool calls so independent changes return in one
+  model round-trip.
 - Player-view privacy: NPC attitudes/plans and faction goals/stances never reach
   the browser.
 - World agent: offscreen evolution automatically after the turn/minute threshold,
   on narrator request, or via the manual override; updates clocks, factions, NPCs,
-  and facts without narrating the player's scene.
+  and facts without narrating the player's scene. Automatic world turns are
+  scheduled after the player turn commits and run in the background, so narration
+  reaches the browser first; the next player turn waits for the queued world turn.
 - Auditor: on-demand structured findings with severity, summary, and evidence.
   Advisory only; no write tools.
 - Fake provider: deterministic replies, generic demo seed, configurable audit
@@ -100,14 +103,14 @@ them.
 ### API and UI
 
 - FastAPI endpoints for health, config, campaign CRUD, player view, GM view,
-  turns, streamed turn progress, world turn, and audit. Typed error envelope with
-  stable codes.
+  turns, streamed turn progress, world turn, world status, and audit. Typed error
+  envelope with stable codes.
 - Svelte 5 + Vite + TypeScript UI: campaign list with delete confirmation,
   creation form, play view, narration transcript, action composer, character
   (with bio)/inventory/world/clocks/journal panels, GM modal with NPC plans and
   faction secrets, audit modal, token-usage modal, and a read-only Canon inspector
   with full state and turn records. Turns stream progress stages and an elapsed
-  timer.
+  timer, report their duration, and poll a background world turn before refreshing.
 - FastAPI serves `web/dist`; Vite proxies `/api` in development.
 - CLI: `list`, `demo`, `show`, and `serve`; `serve` honours `--data-dir` and
   `--provider` for both normal and reload modes.
@@ -118,7 +121,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 91 passed |
+| `uv run pytest -q` | 92 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 76 files already formatted |
 | `uv run mypy` | no issues in 63 source files |
@@ -156,7 +159,8 @@ network calls and need no credentials. Coverage includes:
 - tool-loop deadline and iteration limit;
 - world turn clock changes hidden from player narration, world-turn files, and
   world turns loading after a player turn with the same number;
-- automatic world turns after the configured player-turn interval;
+- automatic world turns after the configured player-turn interval, including a
+  background turn that leaves the player result usable before it commits;
 - auditor findings and empty findings;
 - campaign generation retry with validation feedback, failure after two tries,
   and a character-concept hint;
@@ -166,8 +170,8 @@ network calls and need no credentials. Coverage includes:
 - BM25 retrieval selecting relevant people/facts out of 120 NPCs and 200 facts,
   excluding unrelated noise, keeping the packet bounded, and finding omitted canon
   through `lookup_canon`;
-- OpenAI adapter request shape, tool call parsing, tool-result mapping, forced
-  structured calls, pricing, and missing-tool errors;
+- OpenAI adapter request shape, parallel tool calls, tool call parsing,
+  tool-result mapping, forced structured calls, pricing, and missing-tool errors;
 - CLI settings overrides reaching the served app, and `demo` running without an
   explicit data directory;
 - HTTP round-trip, 404, 422 validation, deletion;
@@ -218,6 +222,12 @@ Live OpenAI smoke test (GPT-6 Luna):
 - A streamed live turn reported `reading → roll → advance_time → reveal_location →
   set_scene → update_npc → saving → done` in 38.1 s and committed the final
   result with a successful roll and new discovery.
+- After the latency pass (background world turns, parallel tool calls, four recent
+  turns, 3000-token narrator budget, six tool iterations), a fresh live campaign
+  generated in 51.7 s and three live player turns took **9.9 s, 14.9 s, and
+  13.2 s**. The third turn returned with `world_turn_queued: true`; its automatic
+  world turn committed 16.7 s later without delaying the player response. The
+  campaign cost **$0.005389** across five recorded turns.
 - The usage endpoint reported 185,469 input / 15,117 output tokens across eight
   recorded turns for *Snowline at Split Fir*, with per-turn and model breakdown.
 - Usage costs now come from the built-in price table: the live 15,724 / 1,367
@@ -236,7 +246,10 @@ Live OpenAI smoke test (GPT-6 Luna):
 ## Known limitations
 
 - Narration is not token-streamed. The UI receives progress stages and then the
-  committed turn; live turns have taken roughly 17–55 s.
+  committed turn. Automatic world turns no longer sit on the player-turn critical
+  path, but a player turn still needs several sequential model/tool round-trips.
+  The latest three-turn live check took 9.9–14.9 s per player turn and 16.7 s for
+  the queued world turn; earlier turns took 17–55 s.
 - No campaign export/import.
 - Retrieval is lexical BM25, not semantic. Synonyms may miss; names and
   `lookup_canon` compensate. The index is rebuilt each turn, and state loading
@@ -256,7 +269,9 @@ Live OpenAI smoke test (GPT-6 Luna):
 
 ## Next steps
 
-1. Add token-level narration streaming while preserving commit-time atomicity.
+1. Measure live turn latency after the background-world, output-budget, and
+   parallel-tool changes; then add token-level narration streaming while
+   preserving commit-time atomicity.
 2. Add campaign export/import.
 3. Replace verbatim leak matching with a model-side redaction pass or embedding
    similarity, then keep the verbatim check as a fast path.
