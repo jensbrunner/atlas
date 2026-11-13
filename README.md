@@ -36,9 +36,9 @@ no story branches in the engine, and no database.
   campaign metadata, character, inventory, all locations, NPCs, factions, clocks,
   facts, journal, and every turn with rolls, changes, and usage.
 - Campaign creation is seeded with an OS-random creative brief: setting,
-  relationship, opening, pressure, texture, and wildcard seeds. The model connects
-  them rather than starting from the same neutral context. See
-  [docs/CREATIVITY.md](docs/CREATIVITY.md).
+  relationship, opening, pressure, texture, and wildcard seeds drawn from six
+  100-entry pools. The model connects them rather than starting from the same
+  neutral context. See [docs/CREATIVITY.md](docs/CREATIVITY.md).
 - Only a relevant slice of canon is sent to the narrator. A local BM25 index
   selects the present cast, nearby places, known facts, and query-relevant
   material; the narrator can call `lookup_canon` for anything omitted. See

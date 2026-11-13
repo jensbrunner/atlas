@@ -1,6 +1,22 @@
 from __future__ import annotations
 
+from atlas import creativity
 from atlas.creativity import choose_narrative_lens, make_creative_brief
+
+
+def test_every_pool_has_one_hundred_unique_entries() -> None:
+    pools = {
+        "settings": creativity._SETTINGS,
+        "relationships": creativity._RELATIONSHIPS,
+        "openings": creativity._OPENINGS,
+        "pressures": creativity._PRESSURES,
+        "textures": creativity._TEXTURES,
+        "wildcards": creativity._WILDCARDS,
+        "lenses": creativity._LENSES,
+    }
+    for name, values in pools.items():
+        assert len(values) == 100, name
+        assert len(set(values)) == 100, name
 
 
 def test_brief_contains_all_ingredients() -> None:

@@ -72,9 +72,9 @@ them.
 
 - Campaign generation receives a persisted six-part creative brief drawn with
   `secrets.SystemRandom`: setting, relationship, opening, pressure, texture, and
-  wildcard.
-- Each player turn receives an optional randomized narrative lens, avoiding the
-  last four.
+  wildcard. Each pool has 100 unique entries.
+- Each player turn receives an optional randomized narrative lens from a 100-entry
+  pool, avoiding the last four.
 - The brief is shown in the Canon inspector; the lens is stored on each turn.
 - `ATLAS_CREATIVE_BRIEFS` and `ATLAS_NARRATIVE_LENSES` can disable either layer.
 
@@ -118,7 +118,7 @@ Run on macOS, Python 3.12, Node 20+.
 
 | Check | Result |
 |---|---|
-| `uv run pytest -q` | 90 passed |
+| `uv run pytest -q` | 91 passed |
 | `uv run ruff check .` | clean |
 | `uv run ruff format --check .` | 76 files already formatted |
 | `uv run mypy` | no issues in 63 source files |
@@ -173,8 +173,8 @@ network calls and need no credentials. Coverage includes:
 - HTTP round-trip, 404, 422 validation, deletion;
 - read-only canon endpoint exposing hidden facts, full NPC sheets, inventory, and
   complete turns;
-- OS-random creative brief completeness/diversity, brief prompt injection and
-  persistence, and narrative-lens non-repetition;
+- OS-random creative brief completeness/diversity, 100-unique-entry pool sizes,
+  brief prompt injection and persistence, and narrative-lens non-repetition;
 - streamed turn events ending in the committed turn result;
 - token-usage aggregation by turn and model, plus the usage endpoint;
 - built-in list prices for major models, dated-ID/alias resolution, known-model

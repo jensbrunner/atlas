@@ -14,7 +14,7 @@ Use local OS randomness to supply **raw material**, then let the model connect i
 ### Campaign creative brief
 
 When a campaign is created, `atlas/creativity.py` draws one item from each of six
-broad pools using `secrets.SystemRandom`:
+**100-entry** pools using `secrets.SystemRandom`:
 
 - setting seed
 - relationship seed
@@ -28,12 +28,13 @@ The brief is appended to the campaign-generation input and stored in
 three elements into one specific situation.
 
 The pools are deliberately broad and mixed. They are not a list of preferred
-settings and they are not a blacklist; the combination is random.
+settings and they are not a blacklist; the combination is random. With six
+100-entry pools there are **1,000,000,000,000** possible briefs.
 
 ### Per-turn narrative texture
 
-For each player turn, the harness draws a **narrative lens** from a separate pool,
-avoiding the last four used. The lens is appended to the narrator packet as
+For each player turn, the harness draws a **narrative lens** from a 100-entry
+pool, avoiding the last four used. The lens is appended to the narrator packet as
 optional texture:
 
 - a small object changes hands
@@ -66,8 +67,8 @@ inspector.
 
 ## Verification
 
-- `tests/unit/test_creativity.py` checks brief completeness, non-fixed output,
-  and lens non-repetition.
+- `tests/unit/test_creativity.py` checks that every pool has exactly 100 unique
+  entries, brief completeness, non-fixed output, and lens non-repetition.
 - `tests/unit/test_campaign_generator.py` checks the brief reaches the generator.
 - `tests/integration/test_campaign.py` checks the brief is persisted.
 - `tests/integration/test_turns.py` checks a lens is recorded.
